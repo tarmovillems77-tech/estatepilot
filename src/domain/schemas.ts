@@ -124,7 +124,7 @@ export const loanSchema = z.discriminatedUnion('rateType', [
   z.object({
     rateType: z.literal('euribor'),
     margin: ratio,
-    /** Current Euribor assumption; forecast scenarios can override it. */
+    /** Current 3-month Euribor (the rate resets quarterly); forecast scenarios override it. */
     euribor: z.number().finite().min(-0.05).max(1),
     ...loanBase,
   }),

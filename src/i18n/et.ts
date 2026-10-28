@@ -84,7 +84,10 @@ export const et = {
     occupancy: 'Täituvus',
     ownedProperties: (count: number) => `${count} objekti portfellis`,
     leasedUnits: (leased: number, total: number) => `${leased} / ${total} üksust välja üüritud`,
-    calculationPending: 'Arvutus lisandub peagi',
+    loanCount: (count: number) => `${count} laenu`,
+    ltvHint: 'Laenujääk / turuväärtus',
+    trailingMonthly: 'Viimase 12 kuu kuukeskmine',
+    afterDebtAndCapex: 'Pärast laenumakseid ja kapitaalremonti, 12 kuu keskmine',
   },
   dashboard: {
     propertiesTitle: 'Kinnisvaraobjektid',
@@ -96,7 +99,13 @@ export const et = {
       units: 'Üksusi',
       occupancy: 'Täituvus',
       marketValue: 'Turuväärtus',
+      noi: 'NOI (12 kuud)',
+      netYield: 'Netotootlus',
+      dscr: 'DSCR',
+      ltv: 'LTV',
     },
+    periodNote: (from: string, to: string) =>
+      `Tegelikud näitajad perioodi ${from}–${to} tehingute ja laenugraafikute põhjal.`,
     emptyPortfolio: 'Portfellis pole veel ühtegi objekti.',
   },
   settings: {

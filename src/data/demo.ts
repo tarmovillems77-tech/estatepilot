@@ -299,8 +299,8 @@ export function buildDemoData(today: Date): DataSnapshot {
   });
   lease(moisaB, kaljukotkas, {
     ...commercial,
-    startDate: month(-8),
-    endDate: monthEnd(52),
+    startDate: month(-14),
+    endDate: monthEnd(46),
     monthlyRent: 2_700,
     deposit: 5_400,
     annualIndexation: 0.02,
@@ -335,7 +335,7 @@ export function buildDemoData(today: Date): DataSnapshot {
     lender: 'Demopank AS',
     principal: 616_000,
     startDate: month(-38),
-    termMonths: 180,
+    termMonths: 240,
     repaymentType: 'annuity',
     rateType: 'fixed',
     fixedRate: 0.0495,
@@ -410,7 +410,20 @@ export function buildDemoData(today: Date): DataSnapshot {
     for (const l of leases) {
       const due = month(offset, l.paymentDay);
       const leased = unitById.get(l.unitId);
-      if (leased && isLeaseActive(l, due)) income(leased, due, l.monthlyRent);
+      if (!leased || !isLeaseActive(l, due)) continue;
+      income(leased, due, l.monthlyRent);
+      // Office and retail tenants in Tähe 27 reimburse shared running costs (kõrvalkulud).
+      if (leased.propertyId === tahe.id && leased.type !== 'parking') {
+        transaction({
+          kind: 'income',
+          category: 'service_charges',
+          propertyId: tahe.id,
+          unitId: leased.id,
+          date: due,
+          amount: round2(leased.area * SERVICE_CHARGE_PER_M2),
+          description: `Kõrvalkulud – ${leased.name}`,
+        });
+      }
     }
 
     const calendarMonth = addMonths(
@@ -465,6 +478,9 @@ export function buildDemoData(today: Date): DataSnapshot {
 
   return { properties, units, tenants, leases, transactions, loans };
 }
+
+/** Monthly service charge advance per m² for the office building's tenants. */
+const SERVICE_CHARGE_PER_M2 = 2.2;
 
 interface CostPlan {
   property: Property;

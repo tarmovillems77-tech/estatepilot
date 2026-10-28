@@ -19,6 +19,38 @@ export function isLeaseEndingSoon(
   return daysBetween(onDate, lease.endDate) <= withinDays;
 }
 
+export interface RentRoll {
+  /** Monthly rent from active leases. */
+  contractRent: number;
+  /** Monthly market rent of vacant units. */
+  vacantMarketRent: number;
+  /** contractRent + vacantMarketRent: monthly rent if every unit were let. */
+  potentialRent: number;
+}
+
+/** Monthly rent roll on a date: leased units at contract rent, vacant units at market rent. */
+export function rentRoll(
+  units: readonly Pick<Unit, 'id' | 'marketRent'>[],
+  leases: readonly Pick<Lease, 'unitId' | 'startDate' | 'endDate' | 'monthlyRent'>[],
+  onDate: string,
+): RentRoll {
+  const activeRent = new Map<string, number>();
+  for (const lease of leases) {
+    if (isLeaseActive(lease, onDate)) {
+      activeRent.set(lease.unitId, (activeRent.get(lease.unitId) ?? 0) + lease.monthlyRent);
+    }
+  }
+
+  let contractRent = 0;
+  let vacantMarketRent = 0;
+  for (const unit of units) {
+    const rent = activeRent.get(unit.id);
+    if (rent === undefined) vacantMarketRent += unit.marketRent;
+    else contractRent += rent;
+  }
+  return { contractRent, vacantMarketRent, potentialRent: contractRent + vacantMarketRent };
+}
+
 /** Share of units with an active lease (0–1); null when there are no units. */
 export function occupancyRate(
   units: readonly Pick<Unit, 'id'>[],

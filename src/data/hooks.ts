@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { store } from './index';
+import type { DateRange } from './store';
 
 /*
  * Reactive reads for components. Each hook returns `undefined` while loading and
@@ -14,6 +15,12 @@ export const useUnits = () => useLiveQuery(() => store.units.list(), []);
 export const useTenants = () => useLiveQuery(() => store.tenants.list(), []);
 
 export const useLeases = () => useLiveQuery(() => store.leases.list(), []);
+
+export const useTransactionsInRange = ({ from, to }: DateRange, propertyId?: string) =>
+  useLiveQuery(
+    () => store.transactions.listInRange({ from, to }, propertyId),
+    [from, to, propertyId],
+  );
 
 export const useLoans = () => useLiveQuery(() => store.loans.list(), []);
 
