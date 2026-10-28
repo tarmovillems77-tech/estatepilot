@@ -15,6 +15,7 @@ import { amortizationSchedule, balanceOn, paymentsBetween } from './loan';
  *   Net yield on value   = NOI / current market value
  *   DSCR                 = NOI / debt service
  *   LTV                  = outstanding loan balance / market value
+ *   Equity               = market value − outstanding loan balance
  *
  * Ratios return null when the denominator is zero (e.g. DSCR without debt).
  */
@@ -79,6 +80,8 @@ export interface Performance extends OperatingSummary {
   monthlyNoi: number;
   monthlyFreeCashFlow: number;
   loanBalance: number;
+  /** Market value − loan balance. */
+  equity: number;
   marketValue: number;
   purchasePrice: number;
   totalInvestment: number;
@@ -145,6 +148,7 @@ type PerformanceTotals = Omit<
   | 'netYieldOnValue'
   | 'dscr'
   | 'ltv'
+  | 'equity'
 >;
 
 function withRatios(totals: PerformanceTotals): Performance {
@@ -160,6 +164,7 @@ function withRatios(totals: PerformanceTotals): Performance {
     netYieldOnValue: netYield(totals.noi * annualise, totals.marketValue),
     dscr: dscr(totals.noi, totals.debtService),
     ltv: ltv(totals.loanBalance, totals.marketValue),
+    equity: totals.marketValue - totals.loanBalance,
   };
 }
 

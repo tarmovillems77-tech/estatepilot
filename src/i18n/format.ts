@@ -1,9 +1,13 @@
 const LOCALE = 'et-EE';
 const CURRENCY = 'EUR';
 
+// et-EE leaves 4-digit numbers ungrouped (1234); always grouping keeps money columns aligned.
+const GROUPING = 'always';
+
 const currencyFormatter = new Intl.NumberFormat(LOCALE, {
   style: 'currency',
   currency: CURRENCY,
+  useGrouping: GROUPING,
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
@@ -11,6 +15,7 @@ const currencyFormatter = new Intl.NumberFormat(LOCALE, {
 const wholeCurrencyFormatter = new Intl.NumberFormat(LOCALE, {
   style: 'currency',
   currency: CURRENCY,
+  useGrouping: GROUPING,
   maximumFractionDigits: 0,
 });
 
@@ -22,7 +27,7 @@ const dateFormatter = new Intl.DateTimeFormat(LOCALE, {
 
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
-/** 12345.5 → "12 345,50 €" (et-EE groups only from five digits: 1234.5 → "1234,50 €") */
+/** 1234.5 → "1 234,50 €" */
 export function formatCurrency(value: number, options: { whole?: boolean } = {}): string {
   return (options.whole ? wholeCurrencyFormatter : currencyFormatter).format(value);
 }
@@ -30,6 +35,7 @@ export function formatCurrency(value: number, options: { whole?: boolean } = {})
 /** 12345.678 → "12 345,68" */
 export function formatNumber(value: number, fractionDigits = 2): string {
   return new Intl.NumberFormat(LOCALE, {
+    useGrouping: GROUPING,
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits,
   }).format(value);

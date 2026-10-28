@@ -66,7 +66,7 @@ export function PropertyListPage() {
     <>
       {header}
 
-      <Card className="p-0">
+      <Card flush>
         <div className="flex flex-wrap gap-3 border-b border-slate-200 p-4">
           <label className="relative min-w-56 flex-1">
             <span className="sr-only">{text.search}</span>

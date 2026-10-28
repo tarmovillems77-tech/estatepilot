@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildDemoData } from '@/data/demo';
-import { toIsoDate } from '../dates';
-import { combineForecasts, defaultScenarios, forecast, forecastInputFor } from './forecast';
-import { portfolioPerformance } from './portfolio';
+import { defaultScenarios, scenarioIds } from './forecast';
+import { portfolioForecast, portfolioPerformance } from './portfolio';
 
 // End-to-end check of the finance engine on the fictional demo portfolio.
 const asOf = new Date(2026, 9, 28);
@@ -36,37 +35,31 @@ describe('portfolioPerformance on demo data', () => {
     expect(result.total.monthlyNoi).toBeCloseTo(noi / 12, 6);
   });
 
+  it('computes equity as market value minus loan balance', () => {
+    const { total } = result;
+    expect(total.equity).toBeCloseTo(total.marketValue - total.loanBalance, 6);
+    expect(total.equity).toBeGreaterThan(0);
+  });
+});
+
+describe('portfolioForecast on demo data', () => {
+  const run = (id: (typeof scenarioIds)[number]) =>
+    portfolioForecast({ ...demo, asOf, scenario: defaultScenarios[id] });
+
   it('forecasts five years for every scenario with optimistic ≥ base ≥ pessimistic', () => {
-    const today = toIsoDate(asOf);
-    const fcfByScenario = (['optimistic', 'base', 'pessimistic'] as const).map((id) => {
-      const perProperty = demo.properties
-        .filter((p) => p.status === 'owned')
-        .map((property) => {
-          const units = demo.units.filter((u) => u.propertyId === property.id);
-          const unitIds = new Set(units.map((u) => u.id));
-          return forecast(
-            forecastInputFor({
-              property,
-              units,
-              leases: demo.leases.filter((l) => unitIds.has(l.unitId) && l.startDate <= today),
-              trailingTransactions: demo.transactions.filter(
-                (t) =>
-                  t.propertyId === property.id &&
-                  t.date >= result.period.from &&
-                  t.date <= result.period.to,
-              ),
-              loans: demo.loans.filter((l) => l.propertyId === property.id),
-              asOf,
-            }),
-            defaultScenarios[id],
-          );
-        });
-      const combined = combineForecasts(perProperty);
-      expect(combined).toHaveLength(5);
-      return combined.reduce((s, y) => s + y.freeCashFlow, 0);
+    const totals = scenarioIds.map((id) => {
+      const years = run(id);
+      expect(years).toHaveLength(5);
+      return years.reduce((s, y) => s + y.freeCashFlow, 0);
     });
-    const [optimistic = 0, base = 0, pessimistic = 0] = fcfByScenario;
+    const [optimistic = 0, base = 0, pessimistic = 0] = totals;
     expect(optimistic).toBeGreaterThan(base);
     expect(base).toBeGreaterThan(pessimistic);
+  });
+
+  it('amortises the loans and lowers LTV in the base case', () => {
+    const years = run('base');
+    expect(years[4]?.loanBalance).toBeLessThan(result.total.loanBalance);
+    expect(years[4]?.ltv).toBeLessThan(result.total.ltv ?? 0);
   });
 });

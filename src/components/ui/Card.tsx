@@ -1,9 +1,14 @@
 import type { HTMLAttributes } from 'react';
 
-export function Card({ className = '', ...props }: HTMLAttributes<HTMLDivElement>) {
+interface CardProps extends HTMLAttributes<HTMLDivElement> {
+  /** No inner padding, e.g. for tables that run edge to edge. */
+  flush?: boolean;
+}
+
+export function Card({ className = '', flush = false, ...props }: CardProps) {
   return (
     <div
-      className={`rounded-xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}
+      className={`rounded-xl border border-slate-200 bg-white shadow-sm ${flush ? 'overflow-hidden' : 'p-5'} ${className}`}
       {...props}
     />
   );

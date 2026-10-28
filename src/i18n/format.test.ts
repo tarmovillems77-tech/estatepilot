@@ -9,8 +9,8 @@ describe('formatCurrency', () => {
     expect(plain(formatCurrency(12345.5))).toBe('12 345,50 €');
   });
 
-  it('leaves four-digit amounts ungrouped, per Estonian convention', () => {
-    expect(plain(formatCurrency(1234.5))).toBe('1234,50 €');
+  it('groups four-digit amounts too, so money columns line up', () => {
+    expect(plain(formatCurrency(1234.5))).toBe('1 234,50 €');
   });
 
   it('can drop the cents', () => {

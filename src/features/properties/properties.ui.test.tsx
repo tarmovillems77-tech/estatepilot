@@ -82,8 +82,7 @@ describe('property pages', () => {
     const row = (await screen.findByText('Ladu C')).closest('tr');
     if (!row) throw new Error('row missing');
     expect(within(row).getByText('Vaba')).toBeTruthy();
-    // Four-digit amounts are not grouped in Estonian: "2000 €".
-    expect(within(row).getByText(/^2000\s€$/)).toBeTruthy();
+    expect(within(row).getByText(/^2\s000\s€$/)).toBeTruthy();
 
     await user.click(within(row).getByRole('button', { name: 'Muuda: Ladu C' }));
     const rent = within(screen.getByRole('dialog')).getByLabelText('Turuüür kuus');
@@ -91,7 +90,7 @@ describe('property pages', () => {
     await user.clear(rent);
     await user.type(rent, '2100');
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Salvesta' }));
-    expect(await screen.findByText(/^2100\s€$/)).toBeTruthy();
+    expect(await screen.findByText(/^2\s100\s€$/)).toBeTruthy();
 
     const updated = screen.getByText('Ladu C').closest('tr');
     if (!updated) throw new Error('row missing');

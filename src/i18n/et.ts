@@ -88,8 +88,40 @@ export const et = {
     ltvHint: 'Laenujääk / turuväärtus',
     trailingMonthly: 'Viimase 12 kuu kuukeskmine',
     afterDebtAndCapex: 'Pärast laenumakseid ja kapitaalremonti, 12 kuu keskmine',
+    equity: 'Omakapital',
+    equityHint: 'Turuväärtus − laenujääk',
+    dscr: 'DSCR',
+    dscrHint: 'NOI / laenumaksed, viimased 12 kuud',
+    netYield: 'Netotootlus',
+    netYieldHint: 'NOI / (ostuhind + tehingukulud)',
+    portfolioHint: (count: number, occupancy: string) =>
+      `${count} objekti portfellis · täituvus ${occupancy}`,
   },
   dashboard: {
+    keyFigures: 'Põhinäitajad',
+    charts: {
+      title: 'Arengud',
+      placeholder: 'Graafik lisandub peagi',
+      now: 'Praegu',
+      inFiveYears: '5 aasta pärast',
+      scenarioNote: 'Prognoos: baasstsenaarium',
+      cashFlow: {
+        title: 'Rahavoog',
+        description: 'NOI, laenumaksed ja vaba rahavoog kuude kaupa',
+        trailing: 'Vaba rahavoog, viimased 12 kuud',
+        forecastMonthly: 'Prognoos, 1. aasta kuukeskmine',
+      },
+      loanBalance: {
+        title: 'Laenujääk',
+        description: 'Laenujäägi vähenemine järgmise 5 aasta jooksul',
+      },
+      ltv: {
+        title: 'LTV',
+        description: 'Laenukoormus turuväärtuse suhtes',
+      },
+    },
+    overviewTitle: 'Objektide ülevaade',
+    allProperties: 'Kõik objektid',
     propertiesTitle: 'Kinnisvaraobjektid',
     columns: {
       name: 'Nimi',

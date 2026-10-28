@@ -316,7 +316,7 @@ function UnitsCard({
   const td = 'tabular px-4 py-3 text-right whitespace-nowrap';
 
   return (
-    <Card className="mt-6 p-0">
+    <Card flush className="mt-6">
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5">
         <h2 className="text-lg font-semibold text-slate-900">{u.title}</h2>
         <Button variant="secondary" onClick={onAdd}>
@@ -341,7 +341,7 @@ function UnitsCard({
                   <th className={th}>{u.columns.status}</th>
                   <th className={th}>{u.columns.tenant}</th>
                   <th className={`${th} text-right`}>{u.columns.contractRent}</th>
-                  <th className={`${th} text-right`}>
+                  <th className={`${th} relative text-right`}>
                     <span className="sr-only">{u.columns.actions}</span>
                   </th>
                 </tr>
