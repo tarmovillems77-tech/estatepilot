@@ -1,22 +1,57 @@
 import { daysBetween } from './dates';
-import type { Lease, Unit } from './types';
+import type { Lease, Property, Unit } from './types';
+
+/** Leases ending within this many days are flagged in the UI. */
+export const LEASE_ALERT_DAYS = 90;
+
+type LeaseTerm = Pick<Lease, 'startDate' | 'endDate'>;
 
 /** ISO dates compare correctly as strings. */
-export function isLeaseActive(
-  lease: Pick<Lease, 'startDate' | 'endDate'>,
-  onDate: string,
-): boolean {
+export function isLeaseActive(lease: LeaseTerm, onDate: string): boolean {
   return lease.startDate <= onDate && (lease.endDate === null || lease.endDate >= onDate);
 }
 
 /** Active fixed-term leases that end within `withinDays` of `onDate`. */
 export function isLeaseEndingSoon(
-  lease: Pick<Lease, 'startDate' | 'endDate'>,
+  lease: LeaseTerm,
   onDate: string,
-  withinDays = 90,
+  withinDays = LEASE_ALERT_DAYS,
 ): boolean {
   if (lease.endDate === null || !isLeaseActive(lease, onDate)) return false;
   return daysBetween(onDate, lease.endDate) <= withinDays;
+}
+
+export type LeaseStatus = 'upcoming' | 'active' | 'endingSoon' | 'ended';
+
+export function leaseStatus(lease: LeaseTerm, onDate: string): LeaseStatus {
+  if (lease.startDate > onDate) return 'upcoming';
+  if (lease.endDate !== null && lease.endDate < onDate) return 'ended';
+  return isLeaseEndingSoon(lease, onDate) ? 'endingSoon' : 'active';
+}
+
+/** Two terms overlap when they share at least one day; open ends run indefinitely. */
+export function leasesOverlap(a: LeaseTerm, b: LeaseTerm): boolean {
+  return a.startDate <= (b.endDate ?? '9999-12-31') && b.startDate <= (a.endDate ?? '9999-12-31');
+}
+
+export interface EffectiveIndexation {
+  /** Yearly rate, or null when the forecast scenario's market rent growth applies. */
+  rate: number | null;
+  source: 'lease' | 'property' | 'scenario';
+}
+
+/** Which indexation applies to a lease: its own, else the property default, else the scenario. */
+export function effectiveIndexation(
+  lease: Pick<Lease, 'annualIndexation'> | undefined,
+  property: Pick<Property, 'rentIndexation'>,
+): EffectiveIndexation {
+  if (lease && lease.annualIndexation !== null) {
+    return { rate: lease.annualIndexation, source: 'lease' };
+  }
+  const propertyRate = property.rentIndexation ?? null;
+  return propertyRate === null
+    ? { rate: null, source: 'scenario' }
+    : { rate: propertyRate, source: 'property' };
 }
 
 export interface RentRoll {

@@ -8,7 +8,8 @@ import {
   transactionSchema,
   unitSchema,
 } from '@/domain/schemas';
-import type { WithMeta } from '@/domain/types';
+import { leasesOverlap } from '@/domain/leases';
+import type { LeaseInput, WithMeta } from '@/domain/types';
 import type { EstatePilotDB } from './db';
 import { newMeta } from './meta';
 import { StoreError, type DataSnapshot, type DataStore, type Repository } from './store';
@@ -66,6 +67,18 @@ export function createDexieStore(db: EstatePilotDB): DataStore {
     });
 
   // Tenants with lease history are kept so that history stays intact.
+  const leaseRepository = createRepository(db.leases, leaseSchema);
+
+  async function assertNoOverlap(
+    lease: Pick<LeaseInput, 'unitId' | 'startDate' | 'endDate'>,
+    ignoreId?: string,
+  ) {
+    const others = await db.leases.where('unitId').equals(lease.unitId).toArray();
+    if (others.some((other) => other.id !== ignoreId && leasesOverlap(other, lease))) {
+      throw new StoreError('leaseOverlap');
+    }
+  }
+
   const removeTenant = (id: string) =>
     db.transaction('rw', [db.tenants, db.leases], async () => {
       if ((await db.leases.where('tenantId').equals(id).count()) > 0) {
@@ -82,7 +95,18 @@ export function createDexieStore(db: EstatePilotDB): DataStore {
     },
     tenants: createRepository(db.tenants, tenantSchema, removeTenant),
     leases: {
-      ...createRepository(db.leases, leaseSchema),
+      ...leaseRepository,
+      // A unit can only have one lease on any given day.
+      async create(input) {
+        await assertNoOverlap(input);
+        return leaseRepository.create(input);
+      },
+      async update(id, changes) {
+        const existing = await db.leases.get(id);
+        if (!existing) throw new StoreError('notFound');
+        await assertNoOverlap({ ...existing, ...changes }, id);
+        return leaseRepository.update(id, changes);
+      },
       listByUnit: (unitId) => db.leases.where('unitId').equals(unitId).toArray(),
     },
     transactions: {

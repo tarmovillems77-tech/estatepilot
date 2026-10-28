@@ -25,9 +25,10 @@ export function Dialog({ open, onClose, title, children }: DialogProps) {
       ref={ref}
       onClose={onClose}
       aria-labelledby="dialog-title"
-      className="m-auto w-[calc(100%-2rem)] max-w-xl rounded-xl bg-white p-0 shadow-xl backdrop:bg-slate-900/40"
+      className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-xl flex-col overflow-hidden rounded-xl bg-white p-0 shadow-xl backdrop:bg-slate-900/40 open:flex"
     >
-      <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+      {/* Title stays in view; only the body scrolls when the form is taller than the screen. */}
+      <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4">
         <h2 id="dialog-title" className="text-lg font-semibold text-slate-900">
           {title}
         </h2>
@@ -40,7 +41,7 @@ export function Dialog({ open, onClose, title, children }: DialogProps) {
           <X className="size-5" />
         </button>
       </div>
-      {open && <div className="p-5">{children}</div>}
+      {open && <div className="overflow-y-auto p-5">{children}</div>}
     </dialog>
   );
 }

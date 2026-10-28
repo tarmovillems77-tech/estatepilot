@@ -1,6 +1,65 @@
 import { describe, expect, it } from 'vitest';
 import { addMonths, daysBetween, toIsoDate } from './dates';
-import { isLeaseActive, isLeaseEndingSoon, occupancyRate } from './leases';
+import {
+  effectiveIndexation,
+  isLeaseActive,
+  isLeaseEndingSoon,
+  leaseStatus,
+  leasesOverlap,
+  occupancyRate,
+} from './leases';
+
+describe('leaseStatus', () => {
+  const today = '2026-10-28';
+
+  it('classifies leases relative to today', () => {
+    expect(leaseStatus({ startDate: '2026-12-01', endDate: null }, today)).toBe('upcoming');
+    expect(leaseStatus({ startDate: '2025-01-01', endDate: '2026-10-27' }, today)).toBe('ended');
+    expect(leaseStatus({ startDate: '2025-01-01', endDate: '2026-12-31' }, today)).toBe(
+      'endingSoon',
+    );
+    expect(leaseStatus({ startDate: '2025-01-01', endDate: '2027-06-30' }, today)).toBe('active');
+    expect(leaseStatus({ startDate: '2025-01-01', endDate: null }, today)).toBe('active');
+  });
+
+  it('counts the last day as still active', () => {
+    expect(leaseStatus({ startDate: '2025-01-01', endDate: today }, today)).toBe('endingSoon');
+  });
+});
+
+describe('leasesOverlap', () => {
+  it('detects shared days, including open-ended terms', () => {
+    const a = { startDate: '2026-01-01', endDate: '2026-06-30' };
+    expect(leasesOverlap(a, { startDate: '2026-06-30', endDate: null })).toBe(true);
+    expect(leasesOverlap(a, { startDate: '2026-07-01', endDate: null })).toBe(false);
+    expect(leasesOverlap({ startDate: '2020-01-01', endDate: null }, a)).toBe(true);
+    expect(leasesOverlap(a, { startDate: '2025-01-01', endDate: '2025-12-31' })).toBe(false);
+  });
+});
+
+describe('effectiveIndexation', () => {
+  it('prefers the lease, then the property, then the scenario', () => {
+    expect(effectiveIndexation({ annualIndexation: 0.03 }, { rentIndexation: 0.02 })).toEqual({
+      rate: 0.03,
+      source: 'lease',
+    });
+    expect(effectiveIndexation({ annualIndexation: null }, { rentIndexation: 0.02 })).toEqual({
+      rate: 0.02,
+      source: 'property',
+    });
+    expect(effectiveIndexation(undefined, { rentIndexation: null })).toEqual({
+      rate: null,
+      source: 'scenario',
+    });
+  });
+
+  it('keeps an explicit 0% on the lease even if the property indexes', () => {
+    expect(effectiveIndexation({ annualIndexation: 0 }, { rentIndexation: 0.03 })).toEqual({
+      rate: 0,
+      source: 'lease',
+    });
+  });
+});
 
 describe('dates', () => {
   it('formats local dates without a timezone shift', () => {

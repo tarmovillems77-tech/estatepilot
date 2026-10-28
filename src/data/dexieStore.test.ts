@@ -1,5 +1,6 @@
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { todayIso } from '@/domain/dates';
 import type { PropertyInput } from '@/domain/types';
 import { EstatePilotDB } from './db';
 import { createDexieStore } from './dexieStore';
@@ -78,6 +79,45 @@ describe('DexieStore', () => {
     expect(
       await store.transactions.listInRange({ from: '2000-01-01', to: '2100-01-01' }, target.id),
     ).toEqual([]);
+  });
+
+  it('rejects overlapping leases on the same unit', async () => {
+    const [existing] = await store.leases.list();
+    if (!existing) throw new Error('demo data missing');
+    const overlapping = {
+      unitId: existing.unitId,
+      tenantId: existing.tenantId,
+      startDate: existing.startDate,
+      endDate: null,
+      monthlyRent: 500,
+      deposit: 0,
+      paymentDay: 1,
+      annualIndexation: null,
+    };
+    await expect(store.leases.create(overlapping)).rejects.toMatchObject({ code: 'leaseOverlap' });
+    // Editing a lease does not conflict with itself.
+    await expect(store.leases.update(existing.id, { monthlyRent: 999 })).resolves.toMatchObject({
+      monthlyRent: 999,
+    });
+  });
+
+  it('allows a new lease after the previous one ends', async () => {
+    const leases = await store.leases.list();
+    const ended = leases.find((l) => l.endDate !== null && l.endDate < todayIso());
+    if (!ended?.endDate) throw new Error('demo data has no ended lease');
+    const others = leases.filter((l) => l.unitId === ended.unitId && l.id !== ended.id);
+    expect(others).toEqual([]);
+    const created = await store.leases.create({
+      unitId: ended.unitId,
+      tenantId: ended.tenantId,
+      startDate: '2099-01-01',
+      endDate: null,
+      monthlyRent: 600,
+      deposit: 600,
+      paymentDay: 5,
+      annualIndexation: 0,
+    });
+    expect(created.annualIndexation).toBe(0);
   });
 
   it('keeps tenants that have leases', async () => {

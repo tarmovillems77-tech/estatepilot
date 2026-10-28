@@ -87,9 +87,18 @@ export function NumberField(props: TextFieldProps) {
   return <TextField inputMode="decimal" autoComplete="off" {...props} />;
 }
 
+interface SelectOption {
+  value: string;
+  label: string;
+}
+
 type SelectFieldProps = FieldFrameProps &
   Omit<SelectHTMLAttributes<HTMLSelectElement>, 'className'> & {
-    options: readonly { value: string; label: string }[];
+    options?: readonly SelectOption[];
+    /** Options shown under group headings (<optgroup>), before `options`. */
+    groups?: readonly { label: string; options: readonly SelectOption[] }[];
+    /** Empty first option, e.g. "Vali üksus". */
+    placeholder?: string;
   };
 
 export function SelectField({
@@ -97,9 +106,17 @@ export function SelectField({
   error,
   hint,
   className,
-  options,
+  options = [],
+  groups = [],
+  placeholder,
   ...select
 }: SelectFieldProps) {
+  const renderOption = (option: SelectOption) => (
+    <option key={option.value} value={option.value}>
+      {option.label}
+    </option>
+  );
+
   return (
     <FieldFrame label={label} error={error} hint={hint} className={className}>
       {({ id, describedBy }) => (
@@ -110,11 +127,13 @@ export function SelectField({
           className={controlClass(Boolean(error))}
           {...select}
         >
-          {options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
+          {placeholder !== undefined && <option value="">{placeholder}</option>}
+          {groups.map((group) => (
+            <optgroup key={group.label} label={group.label}>
+              {group.options.map(renderOption)}
+            </optgroup>
           ))}
+          {options.map(renderOption)}
         </select>
       )}
     </FieldFrame>

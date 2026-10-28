@@ -1,5 +1,5 @@
 import { addMonths, dayBefore, fromIsoDate, toIsoDate } from '../dates';
-import { isLeaseActive } from '../leases';
+import { effectiveIndexation, isLeaseActive } from '../leases';
 import type {
   LeaseInput,
   LoanInput,
@@ -289,15 +289,12 @@ export function rentStreamsFor(
   source: Pick<ForecastSource, 'property' | 'units' | 'leases'>,
   onDate: string,
 ): RentStream[] {
-  const propertyIndexation = source.property.rentIndexation ?? null;
   return source.units.map((unit) => {
     const lease = source.leases.find((l) => l.unitId === unit.id && isLeaseActive(l, onDate));
+    const indexation = effectiveIndexation(lease, source.property).rate;
     return lease
-      ? {
-          annualRent: lease.monthlyRent * 12,
-          indexation: lease.annualIndexation ?? propertyIndexation,
-        }
-      : { annualRent: unit.marketRent * 12, indexation: propertyIndexation };
+      ? { annualRent: lease.monthlyRent * 12, indexation }
+      : { annualRent: unit.marketRent * 12, indexation };
   });
 }
 

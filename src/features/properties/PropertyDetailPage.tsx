@@ -1,4 +1,4 @@
-import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, FilePen, FilePlus, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Button } from '@/components/ui/Button';
@@ -23,7 +23,7 @@ import {
   forecastInputFor,
 } from '@/domain/finance/forecast';
 import { propertyPerformance } from '@/domain/finance/metrics';
-import { isLeaseActive, rentRoll } from '@/domain/leases';
+import { isLeaseActive, leaseStatus, rentRoll } from '@/domain/leases';
 import type { Lease, Property, Tenant, Unit } from '@/domain/types';
 import {
   formatArea,
@@ -41,6 +41,8 @@ import {
   TrailingBreakdown,
   TrailingIntro,
 } from './CalculationBreakdown';
+import { LeaseDialog } from '@/features/leases/LeaseDialog';
+import { termLabel } from '@/features/leases/labels';
 import { UnitDialog } from './UnitDialog';
 
 const text = et.properties;
@@ -60,6 +62,7 @@ export function PropertyDetailPage() {
   const tenants = useTenants();
   const transactions = useTransactionsInRange(period, id);
   const [dialog, setDialog] = useState<{ unit?: Unit } | null>(null);
+  const [leaseDialog, setLeaseDialog] = useState<{ lease?: Lease; unitId?: string } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const back = (
@@ -176,6 +179,8 @@ export function PropertyDetailPage() {
         onAdd={() => setDialog({})}
         onEdit={(unit) => setDialog({ unit })}
         onDelete={removeUnit}
+        onAddLease={(unit) => setLeaseDialog({ unitId: unit.id })}
+        onEditLease={(lease) => setLeaseDialog({ lease })}
       />
 
       <PropertyInfo property={property} />
@@ -186,6 +191,12 @@ export function PropertyDetailPage() {
         propertyId={property.id}
         propertyType={property.type}
         unit={dialog?.unit}
+      />
+      <LeaseDialog
+        open={leaseDialog !== null}
+        onClose={() => setLeaseDialog(null)}
+        lease={leaseDialog?.lease}
+        unitId={leaseDialog?.unitId}
       />
     </>
   );
@@ -299,6 +310,8 @@ function UnitsCard({
   onAdd,
   onEdit,
   onDelete,
+  onAddLease,
+  onEditLease,
 }: {
   units: Unit[];
   leases: Lease[];
@@ -306,6 +319,8 @@ function UnitsCard({
   onAdd: () => void;
   onEdit: (unit: Unit) => void;
   onDelete: (unit: Unit) => void;
+  onAddLease: (unit: Unit) => void;
+  onEditLease: (lease: Lease) => void;
 }) {
   const u = et.units;
   const today = todayIso();
@@ -368,15 +383,49 @@ function UnitsCard({
                       <td className={td}>{eur(unit.marketRent)}</td>
                       <td className={td}>{formatNumber(unit.marketRent / unit.area)}</td>
                       <td className="px-4 py-3">
-                        <StatusBadge tone={lease ? 'brand' : 'amber'}>
-                          {lease ? u.leased : u.vacant}
-                        </StatusBadge>
+                        {!lease ? (
+                          <StatusBadge tone="amber">{u.vacant}</StatusBadge>
+                        ) : leaseStatus(lease, today) === 'endingSoon' ? (
+                          <StatusBadge tone="amber">{et.leases.status.endingSoon}</StatusBadge>
+                        ) : (
+                          <StatusBadge tone="brand">{u.leased}</StatusBadge>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-slate-600">
-                        {lease ? (tenantName.get(lease.tenantId) ?? dash) : dash}
+                        {lease ? (
+                          <>
+                            <p>{tenantName.get(lease.tenantId) ?? dash}</p>
+                            <p className="tabular text-xs whitespace-nowrap text-slate-500">
+                              {termLabel(lease)}
+                            </p>
+                          </>
+                        ) : (
+                          dash
+                        )}
                       </td>
                       <td className={td}>{lease ? eur(lease.monthlyRent) : dash}</td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
+                        {lease ? (
+                          <button
+                            type="button"
+                            onClick={() => onEditLease(lease)}
+                            className="hover:text-brand-700 rounded-md p-1.5 text-slate-500 hover:bg-slate-100"
+                            aria-label={u.editLease(unit.name)}
+                            title={u.editLease(unit.name)}
+                          >
+                            <FilePen className="size-4" />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => onAddLease(unit)}
+                            className="hover:text-brand-700 rounded-md p-1.5 text-slate-500 hover:bg-slate-100"
+                            aria-label={u.addLease(unit.name)}
+                            title={u.addLease(unit.name)}
+                          >
+                            <FilePlus className="size-4" />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => onEdit(unit)}

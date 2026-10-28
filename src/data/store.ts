@@ -59,7 +59,7 @@ export interface DataSnapshot {
   loans: WithMeta<LoanInput>[];
 }
 
-export type StoreErrorCode = 'notFound' | 'tenantHasLeases';
+export type StoreErrorCode = 'notFound' | 'tenantHasLeases' | 'leaseOverlap';
 
 /** Expected failures the UI can explain to the user (messages live in et.ts). */
 export class StoreError extends Error {

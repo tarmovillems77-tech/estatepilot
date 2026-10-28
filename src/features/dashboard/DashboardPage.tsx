@@ -5,7 +5,15 @@ import { Card } from '@/components/ui/Card';
 import { KpiCard } from '@/components/ui/KpiCard';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { useLeases, useLoans, useProperties, useTransactionsInRange, useUnits } from '@/data/hooks';
+import { LeaseAlerts } from '@/features/leases/LeaseAlerts';
+import {
+  useLeases,
+  useLoans,
+  useProperties,
+  useTenants,
+  useTransactionsInRange,
+  useUnits,
+} from '@/data/hooks';
 import { todayIso, trailingTwelveMonths } from '@/domain/dates';
 import { defaultScenarios } from '@/domain/finance/forecast';
 import type { Performance } from '@/domain/finance/metrics';
@@ -28,12 +36,13 @@ export function DashboardPage() {
   const units = useUnits();
   const leases = useLeases();
   const loans = useLoans();
+  const tenants = useTenants();
   const transactions = useTransactionsInRange(trailingTwelveMonths(now));
 
   const page = et.pages.dashboard;
   const header = <PageHeader title={page.title} description={page.description} />;
 
-  if (!properties || !units || !leases || !loans || !transactions) {
+  if (!properties || !units || !leases || !loans || !transactions || !tenants) {
     return (
       <>
         {header}
@@ -101,6 +110,16 @@ export function DashboardPage() {
           <KpiCard label={k.netYield} value={ratio(total.netYield)} hint={k.netYieldHint} />
         </div>
       </section>
+
+      <div className="mt-6">
+        <LeaseAlerts
+          properties={properties}
+          units={units}
+          leases={leases}
+          tenants={tenants}
+          today={today}
+        />
+      </div>
 
       <ChartSection total={total} fifthYear={baseForecast.at(-1)} firstYear={baseForecast[0]} />
 
