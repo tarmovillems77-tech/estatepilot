@@ -11,6 +11,17 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Libraries change less often than app code; separate chunks cache better.
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router'],
+          data: ['dexie', 'dexie-react-hooks', 'zod'],
+        },
+      },
+    },
+  },
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],

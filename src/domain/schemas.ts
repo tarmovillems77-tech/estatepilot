@@ -1,0 +1,145 @@
+import { z } from 'zod';
+import { expenseCategories, incomeCategories } from './categories';
+
+/*
+ * Conventions:
+ * - Money is in euros (EUR), VAT-exclusive. Rent and payments are monthly unless named otherwise.
+ * - Rates and percentages are decimal ratios: 0.045 means 4.5%.
+ * - Dates are ISO calendar dates ("2026-10-28"); `null` end dates mean open-ended.
+ *
+ * Schemas describe the user-editable fields. Id and timestamps are added by the data layer,
+ * so the same schemas validate forms, imports and stored records.
+ */
+
+const isoDate = z.iso.date();
+const money = z.number().finite().nonnegative();
+const ratio = z.number().finite().min(0).max(1);
+const optionalText = z.string().trim().max(2000).optional();
+
+export const propertyTypes = ['residential', 'commercial'] as const;
+/** owned = in the portfolio; prospect = an investment being evaluated (used in comparisons). */
+export const propertyStatuses = ['owned', 'prospect'] as const;
+
+export const propertySchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  type: z.enum(propertyTypes),
+  status: z.enum(propertyStatuses),
+  address: z.string().trim().min(1).max(200),
+  city: z.string().trim().min(1).max(80),
+  /** Asking price for prospects. */
+  purchasePrice: money,
+  /** Notary, state fees, broker and other one-off acquisition costs. */
+  acquisitionCosts: money,
+  purchaseDate: isoDate.nullable(),
+  marketValue: money,
+  marketValueDate: isoDate,
+  /** Total net area in m². */
+  totalArea: z.number().finite().positive().optional(),
+  yearBuilt: z.number().int().min(1800).max(2100).optional(),
+  notes: optionalText,
+});
+
+export const unitTypes = [
+  'apartment',
+  'house',
+  'office',
+  'retail',
+  'warehouse',
+  'parking',
+  'other',
+] as const;
+
+export const unitSchema = z.object({
+  propertyId: z.string().min(1),
+  name: z.string().trim().min(1).max(80),
+  type: z.enum(unitTypes),
+  /** m² */
+  area: z.number().finite().positive(),
+  rooms: z.number().int().positive().optional(),
+  floor: z.number().int().optional(),
+  /** Expected monthly rent when vacant; also used for prospects. */
+  marketRent: money,
+  notes: optionalText,
+});
+
+export const tenantKinds = ['person', 'company'] as const;
+
+export const tenantSchema = z.object({
+  kind: z.enum(tenantKinds),
+  name: z.string().trim().min(1).max(160),
+  /** Company registry code; personal ID codes are deliberately not stored. */
+  registryCode: z.string().trim().max(20).optional(),
+  email: z.email().optional(),
+  phone: z.string().trim().max(40).optional(),
+  notes: optionalText,
+});
+
+export const leaseSchema = z
+  .object({
+    unitId: z.string().min(1),
+    tenantId: z.string().min(1),
+    startDate: isoDate,
+    endDate: isoDate.nullable(),
+    monthlyRent: money,
+    deposit: money,
+    /** Day of month the rent is due. */
+    paymentDay: z.number().int().min(1).max(28),
+    /** Contractual yearly rent increase, e.g. 0.03. */
+    annualIndexation: ratio,
+    notes: optionalText,
+  })
+  .refine((lease) => lease.endDate === null || lease.endDate >= lease.startDate, {
+    path: ['endDate'],
+    message: 'endDate must not be before startDate',
+  });
+
+const transactionBase = {
+  propertyId: z.string().min(1),
+  unitId: z.string().min(1).nullable(),
+  date: isoDate,
+  /** Always positive; the direction comes from `kind`. */
+  amount: money,
+  description: z.string().trim().max(300).optional(),
+};
+
+export const transactionSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('income'), category: z.enum(incomeCategories), ...transactionBase }),
+  z.object({ kind: z.literal('expense'), category: z.enum(expenseCategories), ...transactionBase }),
+]);
+
+export const repaymentTypes = ['annuity', 'equal_principal'] as const;
+
+const loanBase = {
+  propertyId: z.string().min(1),
+  lender: z.string().trim().min(1).max(120),
+  principal: z.number().finite().positive(),
+  startDate: isoDate,
+  termMonths: z.number().int().min(1).max(600),
+  repaymentType: z.enum(repaymentTypes),
+  notes: optionalText,
+};
+
+export const loanSchema = z.discriminatedUnion('rateType', [
+  z.object({ rateType: z.literal('fixed'), fixedRate: ratio, ...loanBase }),
+  z.object({
+    rateType: z.literal('euribor'),
+    margin: ratio,
+    /** Current Euribor assumption; forecast scenarios can override it. */
+    euribor: z.number().finite().min(-0.05).max(1),
+    ...loanBase,
+  }),
+]);
+
+export type PropertyInput = z.infer<typeof propertySchema>;
+export type UnitInput = z.infer<typeof unitSchema>;
+export type TenantInput = z.infer<typeof tenantSchema>;
+export type LeaseInput = z.infer<typeof leaseSchema>;
+export type TransactionInput = z.infer<typeof transactionSchema>;
+export type LoanInput = z.infer<typeof loanSchema>;
+
+export type PropertyType = PropertyInput['type'];
+export type PropertyStatus = PropertyInput['status'];
+export type UnitType = UnitInput['type'];
+export type TenantKind = TenantInput['kind'];
+export type RepaymentType = LoanInput['repaymentType'];
+export type RateType = LoanInput['rateType'];

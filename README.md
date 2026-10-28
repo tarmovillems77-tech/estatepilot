@@ -30,7 +30,18 @@ Open http://localhost:5173.
 
 ## Tech stack
 
-React 19, TypeScript, Vite, Tailwind CSS v4, React Router, Vitest. Data will be stored locally in the browser (IndexedDB via Dexie, added in step 2) behind a repository layer so a cloud backend can be added later.
+React 19, TypeScript, Vite, Tailwind CSS v4, React Router, Dexie (IndexedDB), Zod, Vitest.
+
+## Data
+
+- Data is stored locally in the browser (IndexedDB via Dexie). Components read through
+  `src/data/hooks.ts` and write through `store` (`src/data/index.ts`), which implements the
+  backend-agnostic `DataStore` interface in `src/data/store.ts`. A cloud backend only needs a
+  new `DataStore` implementation and new hooks.
+- Zod schemas in `src/domain/schemas.ts` validate every write (and later forms and imports).
+- On first launch the database is filled with a fictional demo portfolio (`src/data/demo.ts`).
+  Settings → "Taasta näidisandmed" restores it; "Kustuta kõik andmed" empties the database.
+- Money is EUR excluding VAT; rates are decimal ratios (0.045 = 4.5 %); dates are ISO strings.
 
 ## Project structure
 

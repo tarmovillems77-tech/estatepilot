@@ -1,22 +1,26 @@
+import type { ReactNode } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { Layout } from '@/app/Layout';
-import { navItems } from '@/app/navigation';
+import { navItems, type Section } from '@/app/navigation';
 import { NotFoundPage } from '@/app/NotFoundPage';
 import { PlaceholderPage } from '@/components/PlaceholderPage';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
+import { SettingsPage } from '@/features/settings/SettingsPage';
 
-// Modules without a real page yet render a placeholder; each later step swaps in its feature page.
+// Modules without a real page yet render a placeholder; each later step adds its page here.
+const pages: Partial<Record<Section, ReactNode>> = {
+  dashboard: <DashboardPage />,
+  settings: <SettingsPage />,
+};
+
 const router = createBrowserRouter([
   {
     element: <Layout />,
     children: [
-      { index: true, element: <DashboardPage /> },
-      ...navItems
-        .filter((item) => item.section !== 'dashboard')
-        .map((item) => ({
-          path: item.path,
-          element: <PlaceholderPage section={item.section} />,
-        })),
+      ...navItems.map((item) => ({
+        path: item.path,
+        element: pages[item.section] ?? <PlaceholderPage section={item.section} />,
+      })),
       { path: '*', element: <NotFoundPage /> },
     ],
   },
