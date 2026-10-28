@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { store } from '@/data';
-import { useLeases, useProperties, useTenants, useUnits } from '@/data/hooks';
+import { useLeases, useProperties, useTenants, useTransactions, useUnits } from '@/data/hooks';
 import { todayIso } from '@/domain/dates';
 import { effectiveIndexation, isLeaseActive, leaseStatus, type LeaseStatus } from '@/domain/leases';
 import type { Lease, Property, Tenant, Unit } from '@/domain/types';
@@ -38,6 +38,7 @@ export function TenantsLeasesPage() {
   const units = useUnits();
   const leases = useLeases();
   const tenants = useTenants();
+  const transactions = useTransactions();
   const [leaseDialog, setLeaseDialog] = useState<{ lease?: Lease } | null>(null);
   const [tenantDialog, setTenantDialog] = useState<{ tenant?: Tenant } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -56,7 +57,7 @@ export function TenantsLeasesPage() {
     </>
   );
 
-  if (!properties || !units || !leases || !tenants) {
+  if (!properties || !units || !leases || !tenants || !transactions) {
     return (
       <>
         <PageHeader title={page.title} description={page.description} />
@@ -92,6 +93,7 @@ export function TenantsLeasesPage() {
         units={units}
         leases={leases}
         tenants={tenants}
+        transactions={transactions}
         today={today}
       />
 

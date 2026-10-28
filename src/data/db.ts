@@ -37,6 +37,32 @@ export class EstatePilotDB extends Dexie {
           }),
       );
 
+    // v3: rent payments link to leases; expense categories reorganised (Step 6).
+    this.version(3)
+      .stores({ transactions: 'id, propertyId, unitId, leaseId, date, [propertyId+date]' })
+      .upgrade(async (tx) => {
+        const leases = (await tx.table('leases').toArray()) as Lease[];
+        await tx
+          .table('transactions')
+          .toCollection()
+          .modify((t: Record<string, unknown>) => {
+            t.source ??= 'manual';
+            t.leaseId ??= null;
+            if (t.category === 'cleaning') t.category = 'maintenance';
+            if (t.category === 'marketing') t.category = 'other_expense';
+            // Link existing rent to the unit's lease that was active on the payment date.
+            if (t.kind === 'income' && t.leaseId === null && typeof t.unitId === 'string') {
+              const lease = leases.find(
+                (l) =>
+                  l.unitId === t.unitId &&
+                  l.startDate <= String(t.date) &&
+                  (l.endDate === null || l.endDate >= String(t.date)),
+              );
+              if (lease) t.leaseId = lease.id;
+            }
+          });
+      });
+
     // First launch: start with fictional demo data so the app is not empty.
     this.on('populate', async (tx) => {
       const demo = buildDemoData(new Date());

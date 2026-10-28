@@ -8,6 +8,7 @@ import {
   transactionSchema,
   unitSchema,
 } from '@/domain/schemas';
+import { arrears, monthsBetween, rentLines } from '@/domain/rent';
 import { buildDemoData } from './demo';
 
 const today = new Date(2026, 9, 28);
@@ -68,12 +69,53 @@ describe('buildDemoData', () => {
     expect(occupancyRate(ownedUnits, demo.leases, '2026-10-28')).toBe(9 / 10);
   });
 
-  it('generates 12 months of history ending before the current month', () => {
-    const dates = demo.transactions.map((t) => t.date);
-    expect(dates.every((d) => d >= '2025-10-01' && d < '2026-10-01')).toBe(true);
-    expect(demo.transactions.some((t) => t.kind === 'expense' && t.category === 'capex')).toBe(
-      true,
+  it('books expenses for the last 12 full months and rent up to today', () => {
+    const expenses = demo.transactions.filter((t) => t.kind === 'expense').map((t) => t.date);
+    expect(expenses.every((d) => d >= '2025-10-01' && d < '2026-10-01')).toBe(true);
+    const income = demo.transactions.filter((t) => t.kind === 'income').map((t) => t.date);
+    expect(income.every((d) => d >= '2025-10-01' && d <= '2026-10-28')).toBe(true);
+    expect(income.some((d) => d >= '2026-10-01')).toBe(true);
+  });
+
+  it('covers operating, capital and income categories', () => {
+    const categories = new Set(demo.transactions.map((t) => t.category));
+    for (const c of [
+      'rent',
+      'parking',
+      'service_charges',
+      'management',
+      'maintenance',
+      'repairs',
+      'utilities',
+      'insurance',
+      'land_tax',
+      'other_expense',
+      'capex',
+    ]) {
+      expect(categories).toContain(c);
+    }
+  });
+
+  it('links every rent payment to an active lease', () => {
+    const leaseById = new Map(demo.leases.map((l) => [l.id, l]));
+    const rent = demo.transactions.filter((t) => t.kind === 'income');
+    expect(rent.length).toBeGreaterThan(0);
+    for (const t of rent) {
+      const lease = t.leaseId ? leaseById.get(t.leaseId) : undefined;
+      expect(lease && isLeaseActive(lease, t.date)).toBe(true);
+      expect(t.periodMonth).toBe(t.date.slice(0, 7));
+    }
+  });
+
+  it('contains deliberate arrears: one partial and two unpaid rents', () => {
+    const lines = rentLines(
+      demo.leases,
+      demo.transactions,
+      monthsBetween('2025-10', '2026-10'),
+      '2026-10-28',
     );
+    const overdue = arrears(lines, '2026-10-28');
+    expect(overdue.map((l) => l.status).sort()).toEqual(['partial', 'unpaid', 'unpaid']);
   });
 
   it('is deterministic for the same day', () => {

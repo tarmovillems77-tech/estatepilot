@@ -50,6 +50,14 @@ export function formatPercent(ratio: number, fractionDigits = 1): string {
   }).format(ratio);
 }
 
+const monthFormatter = new Intl.DateTimeFormat(LOCALE, { month: 'long', year: 'numeric' });
+
+/** "2026-03" → "märts 2026" */
+export function formatMonth(month: string): string {
+  const [year = 0, monthNumber = 1] = month.split('-').map(Number);
+  return monthFormatter.format(new Date(year, monthNumber - 1, 1));
+}
+
 /** 48 → "48 m²", 47.5 → "47,5 m²" */
 export function formatArea(value: number): string {
   return `${formatNumber(value, Number.isInteger(value) ? 0 : 1)}\u00a0m²`;

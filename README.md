@@ -41,6 +41,13 @@ React 19, TypeScript, Vite, Tailwind CSS v4, React Router, Dexie (IndexedDB), Zo
 - Zod schemas in `src/domain/schemas.ts` validate every write (and later forms and imports).
 - On first launch the database is filled with a fictional demo portfolio (`src/data/demo.ts`).
   Settings → "Taasta näidisandmed" restores it; "Kustuta kõik andmed" empties the database.
+- Expenses fall into three groups (src/domain/categories.ts): operating expenses reduce NOI;
+  capital expenditure and loan payments come after NOI. Debt service always comes from the loan
+  schedules; recorded loan payments are only shown for reconciliation.
+- Rent payments link to a lease (and so to a tenant) and a rent month; expected vs. received
+  rent and arrears are computed in src/domain/rent.ts.
+- Transaction CSV format (src/io/transactionsCsv.ts): ';' separator, decimal comma, dd.mm.yyyy,
+  UTF-8 with BOM, signed amounts. Used for export now and for bank/accounting imports later.
 - Money is EUR excluding VAT; rates are decimal ratios (0.045 = 4.5 %); dates are ISO strings.
 
 ## Project structure

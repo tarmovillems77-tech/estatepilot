@@ -1,4 +1,4 @@
-import { isOperatingExpense } from '../categories';
+import { expenseGroupOf, rentCategories } from '../categories';
 import type { LoanInput, PropertyInput, TransactionInput } from '../types';
 import { amortizationSchedule, balanceOn, paymentsBetween } from './loan';
 
@@ -6,7 +6,8 @@ import { amortizationSchedule, balanceOn, paymentsBetween } from './loan';
  * Definitions (all amounts EUR excl. VAT, before income tax):
  *
  *   Gross income         = all income (rent, parking, service charges, other)
- *   Operating expenses   = all expenses except capital expenditure; loan payments are not expenses
+ *   Operating expenses   = expenses in the "operating" group (categories.ts); capital
+ *                          expenditure and loan payments are excluded
  *   NOI                  = gross income − operating expenses
  *   Debt service         = loan principal + interest paid
  *   Free cash flow (FCF) = NOI − debt service − capital expenditure
@@ -51,13 +52,14 @@ export function summarizeOperations(transactions: readonly TransactionInput[]): 
 
   for (const t of transactions) {
     if (t.kind === 'income') {
-      if (t.category === 'rent' || t.category === 'parking') rentalIncome += t.amount;
+      if (rentCategories.has(t.category)) rentalIncome += t.amount;
       else otherIncome += t.amount;
-    } else if (isOperatingExpense(t.category)) {
-      operatingExpenses += t.amount;
-    } else {
-      capex += t.amount;
+      continue;
     }
+    const group = expenseGroupOf[t.category];
+    if (group === 'operating') operatingExpenses += t.amount;
+    else if (group === 'capital') capex += t.amount;
+    // Recorded loan payments (financing) are skipped: debt service comes from the loan schedule.
   }
 
   const grossIncome = rentalIncome + otherIncome;

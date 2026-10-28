@@ -102,13 +102,28 @@ export const leaseSchema = z
     message: 'endBeforeStart',
   });
 
+/** "YYYY-MM" */
+export const isoMonth = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
+
+export const transactionSources = ['manual', 'import', 'demo'] as const;
+
 const transactionBase = {
   propertyId: z.string().min(1),
   unitId: z.string().min(1).nullable(),
+  /** Rent payments: the lease (and through it the tenant) the payment belongs to. */
+  leaseId: z.string().min(1).nullable().default(null),
+  /** Payment or invoice date. */
   date: isoDate,
+  /** Rent payments: the rent month being paid, if different from the payment date's month. */
+  periodMonth: isoMonth.optional(),
   /** Always positive; the direction comes from `kind`. */
   amount: money,
   description: z.string().trim().max(300).optional(),
+  /** Payer or payee as on the bank statement or invoice. */
+  counterparty: z.string().trim().max(160).optional(),
+  /** Bank archive id, reference number or invoice number; used to detect duplicate imports. */
+  externalRef: z.string().trim().max(120).optional(),
+  source: z.enum(transactionSources).default('manual'),
 };
 
 export const transactionSchema = z.discriminatedUnion('kind', [

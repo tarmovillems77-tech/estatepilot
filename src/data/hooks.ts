@@ -32,6 +32,9 @@ export const useTenants = () => useLiveQuery(() => store.tenants.list(), []);
 
 export const useLeases = () => useLiveQuery(() => store.leases.list(), []);
 
+/** All transactions; fine for a local single-user database. */
+export const useTransactions = () => useLiveQuery(() => store.transactions.list(), []);
+
 export const useTransactionsInRange = ({ from, to }: DateRange, propertyId?: string) =>
   useLiveQuery(
     () => store.transactions.listInRange({ from, to }, propertyId),

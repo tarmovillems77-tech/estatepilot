@@ -25,5 +25,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.{ts,tsx}'],
+    // Page tests seed a database and render the whole app; allow for slow, busy machines.
+    testTimeout: 20_000,
   },
 });

@@ -239,7 +239,7 @@ export function buildDemoData(today: Date): DataSnapshot {
     annualIndexation: 0,
   });
   // Ends within 3 months → shows up as "ending soon".
-  lease(parna2, jaan, {
+  const jaanLease = lease(parna2, jaan, {
     ...residential,
     startDate: month(-10),
     endDate: monthEnd(2),
@@ -279,7 +279,7 @@ export function buildDemoData(today: Date): DataSnapshot {
     deposit: 2_760,
     annualIndexation: 0.025,
   });
-  lease(tahe101, rabapiiga, {
+  const rabapiigaLease = lease(tahe101, rabapiiga, {
     ...commercial,
     startDate: month(-30),
     endDate: monthEnd(1),
@@ -347,18 +347,42 @@ export function buildDemoData(today: Date): DataSnapshot {
     fixedRate: 0.0495,
   });
 
-  // --- Income and expenses for the last 12 full months ------------------------------------
+  // --- Income and expenses ---------------------------------------------------------------
+  // Expenses cover the last 12 full months. Rent is paid through the current month (when
+  // already due), with a few deliberate arrears so the rent tracking has something to show.
 
+  const todayIso = toIsoDate(today);
   const unitById = new Map(units.map((u) => [u.id, u]));
-  const income = (u: Unit, date: string, amount: number) =>
+  const tenantById = new Map(tenants.map((t) => [t.id, t]));
+
+  /** Amount actually paid for `lease` in month `offset`; missing entries are paid in full. */
+  const paidInstead = new Map<string, number>([
+    [`${rabapiigaLease.id}:-1`, 1_000], // partly paid last month
+    [`${rabapiigaLease.id}:0`, 0], // nothing paid this month
+    [`${jaanLease.id}:0`, 0], // nothing paid this month
+  ]);
+
+  const leaseIncome = (
+    l: Lease,
+    u: Unit,
+    category: 'rent' | 'parking' | 'service_charges',
+    date: string,
+    periodMonth: string,
+    amount: number,
+    description: string,
+  ) =>
     transaction({
       kind: 'income',
-      category: u.type === 'parking' ? 'parking' : 'rent',
+      category,
       propertyId: u.propertyId,
       unitId: u.id,
+      leaseId: l.id,
       date,
+      periodMonth,
       amount,
-      description: `Üür – ${u.name}`,
+      description,
+      counterparty: tenantById.get(l.tenantId)?.name,
+      source: 'demo',
     });
   const expense = (
     owner: Property,
@@ -372,9 +396,12 @@ export function buildDemoData(today: Date): DataSnapshot {
       category,
       propertyId: owner.id,
       unitId: null,
+      leaseId: null,
       date,
       amount,
       description,
+      counterparty: PAYEES[category],
+      source: 'demo',
     });
 
   const costPlans: CostPlan[] = [
@@ -383,7 +410,7 @@ export function buildDemoData(today: Date): DataSnapshot {
       monthly: [
         { category: 'management', amount: 120, description: 'Haldusteenus' },
         { category: 'utilities', amount: 90, description: 'Üldelekter ja vesi', seasonal: true },
-        { category: 'cleaning', amount: 60, description: 'Trepikoja koristus' },
+        { category: 'maintenance', amount: 60, description: 'Trepikoja koristus' },
       ],
       repairs: { chance: 0.35, min: 80, max: 450 },
       insurance: { month: 0, amount: 420 },
@@ -394,7 +421,7 @@ export function buildDemoData(today: Date): DataSnapshot {
       monthly: [
         { category: 'management', amount: 350, description: 'Haldusteenus' },
         { category: 'utilities', amount: 400, description: 'Küte ja üldelekter', seasonal: true },
-        { category: 'cleaning', amount: 220, description: 'Üldpindade koristus' },
+        { category: 'maintenance', amount: 220, description: 'Üldpindade koristus' },
       ],
       repairs: { chance: 0.5, min: 150, max: 900 },
       insurance: { month: 5, amount: 1_800 },
@@ -412,25 +439,36 @@ export function buildDemoData(today: Date): DataSnapshot {
     },
   ];
 
-  for (let offset = -12; offset <= -1; offset++) {
+  for (let offset = -12; offset <= 0; offset++) {
+    const periodMonth = month(offset).slice(0, 7);
+
     for (const l of leases) {
       const due = month(offset, l.paymentDay);
       const leased = unitById.get(l.unitId);
-      if (!leased || !isLeaseActive(l, due)) continue;
-      income(leased, due, l.monthlyRent);
+      if (!leased || !isLeaseActive(l, due) || due > todayIso) continue;
+
+      const paid = paidInstead.get(`${l.id}:${offset}`) ?? l.monthlyRent;
+      if (paid > 0) {
+        const category = leased.type === 'parking' ? 'parking' : 'rent';
+        leaseIncome(l, leased, category, due, periodMonth, paid, `Üür – ${leased.name}`);
+      }
       // Office and retail tenants in Tähe 27 reimburse shared running costs (kõrvalkulud).
       if (leased.propertyId === tahe.id && leased.type !== 'parking') {
-        transaction({
-          kind: 'income',
-          category: 'service_charges',
-          propertyId: tahe.id,
-          unitId: leased.id,
-          date: due,
-          amount: round2(leased.area * SERVICE_CHARGE_PER_M2),
-          description: `Kõrvalkulud – ${leased.name}`,
-        });
+        const charge = round2(leased.area * SERVICE_CHARGE_PER_M2);
+        leaseIncome(
+          l,
+          leased,
+          'service_charges',
+          due,
+          periodMonth,
+          charge,
+          `Kõrvalkulud – ${leased.name}`,
+        );
       }
     }
+
+    // Expenses are booked for full months only.
+    if (offset === 0) continue;
 
     const calendarMonth = addMonths(
       new Date(today.getFullYear(), today.getMonth(), 1),
@@ -452,13 +490,7 @@ export function buildDemoData(today: Date): DataSnapshot {
       }
       if (random() < plan.repairs.chance) {
         const amount = between(plan.repairs.min, plan.repairs.max);
-        expense(
-          plan.property,
-          'maintenance',
-          month(offset, between(5, 25)),
-          amount,
-          'Jooksev remont',
-        );
+        expense(plan.property, 'repairs', month(offset, between(5, 25)), amount, 'Jooksev remont');
       }
       if (calendarMonth === plan.insurance.month) {
         expense(
@@ -475,10 +507,10 @@ export function buildDemoData(today: Date): DataSnapshot {
     }
   }
 
-  // One-off items: capital expenditure (outside NOI) and marketing the vacant flat.
+  // One-off items: capital expenditure (outside NOI) and advertising the vacant flat.
   expense(parna, 'capex', month(-5, 20), 6_400, 'Trepikoja remont');
   expense(tahe, 'capex', month(-8, 12), 12_500, 'Ventilatsiooni uuendamine');
-  expense(parna, 'marketing', month(-2, 3), 150, 'Üürikuulutus – Korter 4');
+  expense(parna, 'other_expense', month(-2, 3), 150, 'Üürikuulutus – Korter 4');
 
   transactions.sort((a, b) => a.date.localeCompare(b.date));
 
@@ -487,6 +519,17 @@ export function buildDemoData(today: Date): DataSnapshot {
 
 /** Monthly service charge advance per m² for the office building's tenants. */
 const SERVICE_CHARGE_PER_M2 = 2.2;
+
+/** Fictional payees per expense category ("Näidis" = demo). */
+const PAYEES: Partial<Record<ExpenseCategory, string>> = {
+  management: 'Näidis Haldus OÜ',
+  maintenance: 'Näidis Hooldus OÜ',
+  repairs: 'Näidis Remont OÜ',
+  utilities: 'Näidis Energia AS',
+  insurance: 'Näidis Kindlustus AS',
+  capex: 'Näidis Ehitus OÜ',
+  other_expense: 'Näidis Meedia OÜ',
+};
 
 interface CostPlan {
   property: Property;

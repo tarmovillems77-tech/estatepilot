@@ -37,7 +37,11 @@ export function DashboardPage() {
   const leases = useLeases();
   const loans = useLoans();
   const tenants = useTenants();
-  const transactions = useTransactionsInRange(trailingTwelveMonths(now));
+  // From the start of the 12-month period up to today: current-month rent is needed for arrears.
+  const transactions = useTransactionsInRange({
+    from: trailingTwelveMonths(now).from,
+    to: todayIso(),
+  });
 
   const page = et.pages.dashboard;
   const header = <PageHeader title={page.title} description={page.description} />;
@@ -117,6 +121,7 @@ export function DashboardPage() {
           units={units}
           leases={leases}
           tenants={tenants}
+          transactions={transactions}
           today={today}
         />
       </div>

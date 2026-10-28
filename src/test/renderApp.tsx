@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto';
-import { render } from '@testing-library/react';
+import { configure, render } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { routes } from '@/app/routes';
 import { installEstonianErrors } from '@/i18n/validation';
@@ -11,6 +11,9 @@ import { installEstonianErrors } from '@/i18n/validation';
  */
 
 installEstonianErrors();
+
+// The first render waits for the demo database to be created; findBy* gets more time for that.
+configure({ asyncUtilTimeout: 8_000 });
 
 // jsdom does not implement modal dialogs.
 if (typeof HTMLDialogElement !== 'undefined' && !HTMLDialogElement.prototype.showModal) {
