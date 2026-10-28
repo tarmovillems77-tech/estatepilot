@@ -1,3 +1,4 @@
+import { Link } from 'react-router';
 import { Card } from '@/components/ui/Card';
 import { KpiCard } from '@/components/ui/KpiCard';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -152,7 +153,12 @@ function PropertyTable({ rows }: { rows: PropertyRow[] }) {
           {rows.map(({ property, unitCount, occupancy, performance: p }) => (
             <tr key={property.id} className="hover:bg-slate-50">
               <td className="px-4 py-3">
-                <p className="font-medium text-slate-900">{property.name}</p>
+                <Link
+                  to={`/kinnisvara/${property.id}`}
+                  className="hover:text-brand-700 font-medium text-slate-900 hover:underline"
+                >
+                  {property.name}
+                </Link>
                 <p className="text-xs text-slate-500">{property.city}</p>
               </td>
               <td className="px-4 py-3 whitespace-nowrap text-slate-600">

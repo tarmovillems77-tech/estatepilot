@@ -44,6 +44,11 @@ export function formatPercent(ratio: number, fractionDigits = 1): string {
   }).format(ratio);
 }
 
+/** 48 → "48 m²", 47.5 → "47,5 m²" */
+export function formatArea(value: number): string {
+  return `${formatNumber(value, Number.isInteger(value) ? 0 : 1)}\u00a0m²`;
+}
+
 /** Coverage ratios such as DSCR: 1.234 → "1,23×" */
 export function formatMultiple(value: number, fractionDigits = 2): string {
   return `${formatNumber(value, fractionDigits)}×`;

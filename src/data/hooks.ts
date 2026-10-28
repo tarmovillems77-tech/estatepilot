@@ -10,6 +10,22 @@ import type { DateRange } from './store';
 
 export const useProperties = () => useLiveQuery(() => store.properties.list(), []);
 
+/** `null` when the property does not exist (`undefined` still means loading). */
+export const useProperty = (id: string | undefined) =>
+  useLiveQuery(async () => (id ? ((await store.properties.get(id)) ?? null) : null), [id]);
+
+export const usePropertyUnits = (propertyId: string | undefined) =>
+  useLiveQuery(
+    () => (propertyId ? store.units.listByProperty(propertyId) : Promise.resolve([])),
+    [propertyId],
+  );
+
+export const usePropertyLoans = (propertyId: string | undefined) =>
+  useLiveQuery(
+    () => (propertyId ? store.loans.listByProperty(propertyId) : Promise.resolve([])),
+    [propertyId],
+  );
+
 export const useUnits = () => useLiveQuery(() => store.units.list(), []);
 
 export const useTenants = () => useLiveQuery(() => store.tenants.list(), []);

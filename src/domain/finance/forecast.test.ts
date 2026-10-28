@@ -32,7 +32,7 @@ const variableLoan: LoanInput = {
 
 const input: ForecastInput = {
   startDate: '2026-11-01',
-  grossPotentialRent: 48_000,
+  rentStreams: [{ annualRent: 48_000, indexation: null }],
   otherIncome: 2_000,
   operatingExpenses: 8_000,
   marketValue: 500_000,
@@ -113,6 +113,28 @@ describe('forecast', () => {
   });
 });
 
+describe('rent indexation', () => {
+  const streams = (indexation: number | null) => ({
+    ...input,
+    rentStreams: [{ annualRent: 48_000, indexation }],
+  });
+
+  it('uses the stream’s own indexation instead of the scenario', () => {
+    const years = forecast(streams(0.03), { ...flat, rentGrowth: 0.1 });
+    expect(years[1]?.grossPotentialRent).toBeCloseTo(48_000 * 1.03);
+  });
+
+  it('keeps rent flat with 0% indexation even when the market grows', () => {
+    const years = forecast(streams(0), { ...flat, rentGrowth: 0.1 });
+    expect(years[4]?.grossPotentialRent).toBe(48_000);
+  });
+
+  it('falls back to the scenario’s market growth without indexation', () => {
+    const years = forecast(streams(null), { ...flat, rentGrowth: 0.1 });
+    expect(years[1]?.grossPotentialRent).toBeCloseTo(52_800);
+  });
+});
+
 describe('combineForecasts', () => {
   it('adds amounts and recomputes ratios', () => {
     const a = forecast({ ...input, loans: [variableLoan] }, flat);
@@ -130,23 +152,56 @@ describe('forecastInputFor', () => {
     { id: 'u2', marketRent: 600 },
   ];
 
+  const property = {
+    type: 'residential' as const,
+    purchasePrice: 300_000,
+    acquisitionCosts: 6_000,
+    marketValue: 310_000,
+    rentIndexation: 0.02,
+  };
+  const lease = {
+    unitId: 'u1',
+    startDate: '2026-01-01',
+    endDate: null,
+    monthlyRent: 750,
+    annualIndexation: null,
+  };
+
   it('uses the rent roll and estimates costs without history', () => {
     const result = forecastInputFor({
-      property: {
-        type: 'residential',
-        purchasePrice: 300_000,
-        acquisitionCosts: 6_000,
-        marketValue: 310_000,
-      },
+      property,
       units,
-      leases: [{ unitId: 'u1', startDate: '2026-01-01', endDate: null, monthlyRent: 750 }],
+      leases: [lease],
       trailingTransactions: [],
       loans: [{ ...variableLoan, principal: 200_000 }],
       asOf: new Date(2026, 9, 28),
     });
     expect(result.startDate).toBe('2026-11-01');
-    expect(result.grossPotentialRent).toBe((750 + 600) * 12);
+    expect(result.rentStreams.reduce((s, r) => s + r.annualRent, 0)).toBe((750 + 600) * 12);
     expect(result.operatingExpenses).toBeCloseTo(16_200 * 0.15);
     expect(result.equityInvested).toBe(106_000);
+  });
+
+  it('takes indexation from the lease first, then from the property', () => {
+    const asOf = new Date(2026, 9, 28);
+    const inherit = forecastInputFor({
+      property,
+      units,
+      leases: [lease],
+      trailingTransactions: [],
+      loans: [],
+      asOf,
+    });
+    expect(inherit.rentStreams.map((s) => s.indexation)).toEqual([0.02, 0.02]);
+
+    const own = forecastInputFor({
+      property: { ...property, rentIndexation: null },
+      units,
+      leases: [{ ...lease, annualIndexation: 0 }],
+      trailingTransactions: [],
+      loans: [],
+      asOf,
+    });
+    expect(own.rentStreams.map((s) => s.indexation)).toEqual([0, null]);
   });
 });

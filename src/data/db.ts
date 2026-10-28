@@ -25,6 +25,18 @@ export class EstatePilotDB extends Dexie {
       loans: 'id, propertyId',
     });
 
+    // v2: properties get a default rent indexation (null = follow the forecast scenario).
+    this.version(2)
+      .stores({})
+      .upgrade((tx) =>
+        tx
+          .table('properties')
+          .toCollection()
+          .modify((property: { rentIndexation?: number | null }) => {
+            property.rentIndexation ??= null;
+          }),
+      );
+
     // First launch: start with fictional demo data so the app is not empty.
     this.on('populate', async (tx) => {
       const demo = buildDemoData(new Date());

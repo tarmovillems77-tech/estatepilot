@@ -1,5 +1,5 @@
 import { addMonths, dayBefore, fromIsoDate, toIsoDate } from '../dates';
-import { rentRoll } from '../leases';
+import { isLeaseActive } from '../leases';
 import type {
   LeaseInput,
   LoanInput,
@@ -14,7 +14,9 @@ import { dscr, freeCashFlow, ltv, summarizeOperations } from './metrics';
 /*
  * Year-by-year projection (year 1 = the 12 months starting next month).
  *
- *   Gross potential rent  = today's rent roll × 12, grown by rentGrowth from year 2
+ *   Gross potential rent  = Σ rent streams; each grows yearly from year 2 by its own rate:
+ *                           lease indexation → else property indexation → else the scenario's
+ *                           market rent growth. Leases are assumed to renew on the same terms.
  *   Vacancy loss          = gross potential rent × vacancyRate
  *   Operating expenses    = last 12 months' operating expenses, grown by opexGrowth from year 1
  *   Capex reserve         = effective gross income × capexReserveRate
@@ -30,7 +32,7 @@ export const scenarioIds = ['optimistic', 'base', 'pessimistic'] as const;
 export type ScenarioId = (typeof scenarioIds)[number];
 
 export interface Scenario {
-  /** Yearly rent change from year 2. */
+  /** Yearly market rent change from year 2, for rents without their own indexation. */
   rentGrowth: number;
   /** Share of potential rent lost to vacancy and arrears. */
   vacancyRate: number;
@@ -78,12 +80,19 @@ export const defaultOpexRatio: Record<PropertyType, number> = {
   commercial: 0.1,
 };
 
+export interface RentStream {
+  /** Annual rent today. */
+  annualRent: number;
+  /** Yearly indexation; null follows the scenario's market rent growth. */
+  indexation: number | null;
+}
+
 export interface ForecastInput {
   /** First day of forecast year 1 (ISO). */
   startDate: string;
-  /** Annual rent if fully let, at today's rents. */
-  grossPotentialRent: number;
-  /** Annual service charges and other income. */
+  /** Rent if fully let, one stream per unit (leased: contract rent, vacant: market rent). */
+  rentStreams: readonly RentStream[];
+  /** Annual service charges and other income; grows with market rent. */
   otherIncome: number;
   /** Annual operating expenses (latest 12 months or an estimate). */
   operatingExpenses: number;
@@ -156,11 +165,14 @@ export function forecast(
   for (let year = 1; year <= years; year++) {
     const from = toIsoDate(addMonths(start, 12 * (year - 1)));
     const to = dayBefore(addMonths(start, 12 * year));
-    const rentFactor = (1 + scenario.rentGrowth) ** (year - 1);
+    const grown = (amount: number, rate: number) => amount * (1 + rate) ** (year - 1);
 
-    const grossPotentialRent = input.grossPotentialRent * rentFactor;
+    const grossPotentialRent = input.rentStreams.reduce(
+      (sum, stream) => sum + grown(stream.annualRent, stream.indexation ?? scenario.rentGrowth),
+      0,
+    );
     const vacancyLoss = grossPotentialRent * scenario.vacancyRate;
-    const otherIncome = input.otherIncome * rentFactor;
+    const otherIncome = grown(input.otherIncome, scenario.rentGrowth);
     const effectiveGrossIncome = grossPotentialRent - vacancyLoss + otherIncome;
     const operatingExpenses = input.operatingExpenses * (1 + scenario.opexGrowth) ** year;
     const capexReserve = effectiveGrossIncome * scenario.capexReserveRate;
@@ -254,26 +266,53 @@ export function combineForecasts(forecasts: readonly ForecastYear[][]): Forecast
 }
 
 export interface ForecastSource {
-  property: Pick<PropertyInput, 'type' | 'purchasePrice' | 'acquisitionCosts' | 'marketValue'>;
+  property: Pick<
+    PropertyInput,
+    'type' | 'purchasePrice' | 'acquisitionCosts' | 'marketValue' | 'rentIndexation'
+  >;
   units: readonly (Pick<UnitInput, 'marketRent'> & { id: string })[];
-  leases: readonly Pick<LeaseInput, 'unitId' | 'startDate' | 'endDate' | 'monthlyRent'>[];
+  leases: readonly Pick<
+    LeaseInput,
+    'unitId' | 'startDate' | 'endDate' | 'monthlyRent' | 'annualIndexation'
+  >[];
   /** This property's transactions over the last 12 months. */
   trailingTransactions: readonly TransactionInput[];
   loans: readonly LoanInput[];
   asOf: Date;
 }
 
+/**
+ * One rent stream per unit. Leased units: contract rent with the lease's indexation, else the
+ * property's. Vacant units: market rent with the property's indexation (else market growth).
+ */
+export function rentStreamsFor(
+  source: Pick<ForecastSource, 'property' | 'units' | 'leases'>,
+  onDate: string,
+): RentStream[] {
+  const propertyIndexation = source.property.rentIndexation ?? null;
+  return source.units.map((unit) => {
+    const lease = source.leases.find((l) => l.unitId === unit.id && isLeaseActive(l, onDate));
+    return lease
+      ? {
+          annualRent: lease.monthlyRent * 12,
+          indexation: lease.annualIndexation ?? propertyIndexation,
+        }
+      : { annualRent: unit.marketRent * 12, indexation: propertyIndexation };
+  });
+}
+
 /** Builds forecast input from stored data; properties without history get estimated costs. */
 export function forecastInputFor(source: ForecastSource): ForecastInput {
-  const { property, units, leases, trailingTransactions, loans, asOf } = source;
-  const grossPotentialRent = rentRoll(units, leases, toIsoDate(asOf)).potentialRent * 12;
+  const { property, trailingTransactions, loans, asOf } = source;
+  const rentStreams = rentStreamsFor(source, toIsoDate(asOf));
+  const grossPotentialRent = rentStreams.reduce((sum, s) => sum + s.annualRent, 0);
   const history = summarizeOperations(trailingTransactions);
   const hasHistory = trailingTransactions.length > 0;
   const borrowed = loans.reduce((sum, loan) => sum + loan.principal, 0);
 
   return {
     startDate: toIsoDate(new Date(asOf.getFullYear(), asOf.getMonth() + 1, 1)),
-    grossPotentialRent,
+    rentStreams,
     otherIncome: history.otherIncome,
     operatingExpenses: hasHistory
       ? history.operatingExpenses

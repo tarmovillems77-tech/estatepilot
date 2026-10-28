@@ -36,6 +36,11 @@ export const propertySchema = z.object({
   /** Total net area in m². */
   totalArea: z.number().finite().positive().optional(),
   yearBuilt: z.number().int().min(1800).max(2100).optional(),
+  /**
+   * Default yearly rent indexation for this property's leases, e.g. 0.03.
+   * 0 means rents stay flat; null means the forecast scenario's market rent growth applies.
+   */
+  rentIndexation: ratio.nullable().default(null),
   notes: optionalText,
 });
 
@@ -84,13 +89,17 @@ export const leaseSchema = z
     deposit: money,
     /** Day of month the rent is due. */
     paymentDay: z.number().int().min(1).max(28),
-    /** Contractual yearly rent increase, e.g. 0.03. */
-    annualIndexation: ratio,
+    /**
+     * Contractual yearly rent increase, e.g. 0.03. 0 means no indexation;
+     * null means the property's default indexation applies.
+     */
+    annualIndexation: ratio.nullable(),
     notes: optionalText,
   })
   .refine((lease) => lease.endDate === null || lease.endDate >= lease.startDate, {
     path: ['endDate'],
-    message: 'endDate must not be before startDate',
+    // Message key, translated in src/i18n/validation.ts.
+    message: 'endBeforeStart',
   });
 
 const transactionBase = {

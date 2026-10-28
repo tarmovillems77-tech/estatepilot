@@ -16,6 +16,7 @@ const property: PropertyInput = {
   purchaseDate: '2024-01-15',
   marketValue: 110_000,
   marketValueDate: '2026-01-01',
+  rentIndexation: null,
 };
 
 let db: EstatePilotDB;

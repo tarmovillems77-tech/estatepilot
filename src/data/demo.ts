@@ -71,6 +71,7 @@ export function buildDemoData(today: Date): DataSnapshot {
     marketValueDate: month(-2),
     totalArea: 194,
     yearBuilt: 1936,
+    rentIndexation: null,
     notes: 'Renoveeritud puitmaja, 4 korterit.',
   });
   const parna1 = unit(parna, {
@@ -119,6 +120,7 @@ export function buildDemoData(today: Date): DataSnapshot {
     marketValueDate: month(-5),
     totalArea: 470,
     yearBuilt: 2008,
+    rentIndexation: 0.03,
   });
   const tahe201 = unit(tahe, {
     name: 'Büroo 201',
@@ -162,6 +164,7 @@ export function buildDemoData(today: Date): DataSnapshot {
     marketValueDate: month(-3),
     totalArea: 1_400,
     yearBuilt: 2016,
+    rentIndexation: 0.02,
   });
   const moisaA = unit(moisa, { name: 'Ladu A', type: 'warehouse', area: 800, marketRent: 3_600 });
   const moisaB = unit(moisa, { name: 'Ladu B', type: 'warehouse', area: 600, marketRent: 2_700 });
@@ -180,6 +183,7 @@ export function buildDemoData(today: Date): DataSnapshot {
     marketValueDate: toIsoDate(today),
     totalArea: 175,
     yearBuilt: 1962,
+    rentIndexation: null,
     notes: 'Müügipakkumine, ülevaatus tegemata.',
   });
   unit(kesk, {
@@ -224,13 +228,15 @@ export function buildDemoData(today: Date): DataSnapshot {
   const tormilind = company('Tormilinnu Logistika OÜ', 'tormilind');
   const kaljukotkas = company('Kaljukotka Kaubandus OÜ', 'kaljukotkas');
 
-  const residential = { paymentDay: 5, annualIndexation: 0 };
+  // Residential leases follow the property default unless set; Korter 1 has a fixed rent (0%).
+  const residential = { paymentDay: 5, annualIndexation: null };
   lease(parna1, kati, {
     ...residential,
     startDate: month(-26),
     endDate: null,
     monthlyRent: 740,
     deposit: 740,
+    annualIndexation: 0,
   });
   // Ends within 3 months → shows up as "ending soon".
   lease(parna2, jaan, {
