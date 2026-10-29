@@ -68,4 +68,61 @@ describe('database upgrades', () => {
 
     await db.delete();
   });
+
+  it('keeps all Step 8 (version 4) data when adding scenario sets', async () => {
+    const name = `migration-v4-${crypto.randomUUID()}`;
+    const old = new Dexie(name);
+    const stores = {
+      properties: 'id, status, type',
+      units: 'id, propertyId',
+      tenants: 'id, name',
+      leases: 'id, unitId, tenantId, endDate',
+      transactions: 'id, propertyId, unitId, date, [propertyId+date]',
+      loans: 'id, propertyId',
+    };
+    old.version(1).stores(stores);
+    old.version(2).stores({});
+    old
+      .version(3)
+      .stores({ transactions: 'id, propertyId, unitId, leaseId, date, [propertyId+date]' });
+    old.version(4).stores({});
+    await old.open();
+    const property = {
+      id: 'p1',
+      name: 'Minu maja',
+      status: 'owned',
+      type: 'residential',
+      rentIndexation: 0.02,
+    };
+    const loan = {
+      id: 'l1',
+      propertyId: null,
+      rateType: 'fixed',
+      fixedRate: 0.04,
+      dayCount: 'act/360',
+      actualBalance: { amount: 50_000, date: '2026-10-01' },
+    };
+    await old.table('properties').add(property);
+    await old.table('loans').add(loan);
+    await old.table('transactions').add({
+      id: 't1',
+      propertyId: 'p1',
+      leaseId: null,
+      date: '2026-05-01',
+      amount: 10,
+      kind: 'expense',
+      category: 'repairs',
+      source: 'manual',
+    });
+    old.close();
+
+    const db = new EstatePilotDB(name);
+    await db.open();
+    expect(await db.properties.toArray()).toEqual([property]);
+    expect(await db.loans.toArray()).toEqual([loan]);
+    expect(await db.transactions.count()).toBe(1);
+    expect(await db.units.count()).toBe(0); // not re-seeded with demo data
+    expect(await db.scenarioSets.count()).toBe(0);
+    await db.delete();
+  });
 });
