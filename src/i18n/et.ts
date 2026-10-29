@@ -101,25 +101,82 @@ export const et = {
   },
   dashboard: {
     keyFigures: 'Põhinäitajad',
+    filter: {
+      label: 'Vaade',
+      portfolio: 'Kogu portfell',
+    },
     charts: {
       title: 'Arengud',
-      placeholder: 'Graafik lisandub peagi',
+      showChart: 'Graafik',
+      showTable: 'Tabel',
       now: 'Praegu',
-      inFiveYears: '5 aasta pärast',
-      scenarioNote: 'Prognoos: baasstsenaarium',
+      yearAhead: (n: number) => `+${n} a`,
+      forecastNote:
+        'Esimene punkt on tänane seis (laenujääk tegelik või arvutuslik), järgmised on prognoos aasta lõpu seisuga.',
+      scenario: {
+        base: 'Baasstsenaarium',
+        optimistic: 'Optimistlik',
+        pessimistic: 'Pessimistlik',
+      },
+      columns: {
+        period: 'Periood',
+        month: 'Kuu',
+      },
       cashFlow: {
-        title: 'Rahavoog',
-        description: 'NOI, laenumaksed ja vaba rahavoog kuude kaupa',
-        trailing: 'Vaba rahavoog, viimased 12 kuud',
-        forecastMonthly: 'Prognoos, 1. aasta kuukeskmine',
+        title: 'Rahavoog, viimased 12 kuud',
+        description: 'Tegelikud tulud ja kulud ning laenumaksed graafiku järgi.',
+        noi: 'NOI',
+        debtService: 'Laenumaksed',
+        freeCashFlow: 'Vaba rahavoog',
+        note: 'Vaba rahavoog = NOI − kapitalikulud − laenumaksed.',
       },
       loanBalance: {
-        title: 'Laenujääk',
-        description: 'Laenujäägi vähenemine järgmise 5 aasta jooksul',
+        title: 'Laenujääk 5 aasta jooksul',
+        description: 'Baasstsenaarium, aasta lõpu seisuga.',
+        series: 'Laenujääk',
       },
       ltv: {
-        title: 'LTV',
-        description: 'Laenukoormus turuväärtuse suhtes',
+        title: 'LTV 5 aasta jooksul',
+        description: 'Laenujääk / turuväärtus stsenaariumite kaupa.',
+      },
+      dscr: {
+        title: 'DSCR trend',
+        description: 'Viimased 12 kuud ja prognoos stsenaariumite kaupa.',
+        threshold: 'Miinimum 1,20',
+      },
+      value: {
+        title: 'Turuväärtus ja omakapital',
+        description: 'Turuväärtus = laenujääk + omakapital (baasstsenaarium).',
+        equity: 'Omakapital',
+        loanBalance: 'Laenujääk',
+        propertyValue: 'Turuväärtus',
+      },
+    },
+    alerts: {
+      title: 'Tähelepanu',
+      none: 'Hetkel hoiatusi pole.',
+      severity: { critical: 'Kriitiline', warning: 'Hoiatus', info: 'Teave' },
+      portfolio: 'Portfell',
+      overdueRent: (tenant: string, amount: string, months: string) =>
+        `${tenant}: tasumata üür ${amount} (${months})`,
+      leaseEnding: (tenant: string, unit: string, date: string, days: number) =>
+        `${tenant} (${unit}): leping lõpeb ${date}, ${days} päeva pärast`,
+      negativeCashFlow: (count: number, total: string) =>
+        `Vaba rahavoog oli negatiivne ${count} kuul viimase 12 kuu jooksul, kokku ${total}.`,
+      negativeCashFlowForecast: (scenario: string, years: string) =>
+        `${scenario}: vaba rahavoog on prognoosis negatiivne (${years}).`,
+      forecastYears: (years: number[]) => years.map((y) => `${y}. aasta`).join(', '),
+      lowDscrTrailing: (subject: string, dscr: string) =>
+        `${subject}: DSCR ${dscr} viimase 12 kuu põhjal (alla 1,20).`,
+      lowDscrForecast: (subject: string, scenario: string, dscr: string, year: number) =>
+        `${subject}: DSCR langeb ${year}. prognoosiaastal ${dscr}-ni (${scenario.toLowerCase()}).`,
+      vacant: (count: number, rent: string) => `${count} vaba üksust, turuüür kokku ${rent} kuus.`,
+      links: {
+        rent: 'Üürilaekumised',
+        leases: 'Lepingud',
+        ledger: 'Tulud ja kulud',
+        loans: 'Laenud',
+        properties: 'Kinnisvara',
       },
     },
     overviewTitle: 'Objektide ülevaade',
@@ -829,6 +886,22 @@ export const et = {
       'Sellel üksusel on samal perioodil juba leping. Muuda kuupäevi või lõpeta eelmine leping varem.',
     unknown: 'Midagi läks valesti. Palun proovi uuesti.',
   } satisfies Record<StoreErrorCode | 'unknown', string>,
+  calendar: {
+    monthsShort: [
+      'jaan',
+      'veebr',
+      'märts',
+      'apr',
+      'mai',
+      'juuni',
+      'juuli',
+      'aug',
+      'sept',
+      'okt',
+      'nov',
+      'dets',
+    ],
+  },
   common: {
     comingSoon: 'Tuleb peagi',
     comingSoonDescription: 'See moodul valmib järgmistes arendusetappides.',

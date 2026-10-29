@@ -18,6 +18,7 @@ export default defineConfig({
         manualChunks: {
           react: ['react', 'react-dom', 'react-router'],
           data: ['dexie', 'dexie-react-hooks', 'zod'],
+          charts: ['recharts'],
         },
       },
     },

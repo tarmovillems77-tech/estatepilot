@@ -1,3 +1,5 @@
+import { et } from './et';
+
 const LOCALE = 'et-EE';
 const CURRENCY = 'EUR';
 
@@ -48,6 +50,22 @@ export function formatPercent(ratio: number, fractionDigits = 1): string {
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits,
   }).format(ratio);
+}
+
+const compactFormatter = new Intl.NumberFormat(LOCALE, {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+});
+
+/** Axis labels: 12459 → "12,5 tuh €", 1188581 → "1,2 mln €". */
+export function formatCompactCurrency(value: number): string {
+  return `${compactFormatter.format(value)} €`;
+}
+
+/** "2026-03" → "märts 26" (chart axes). Fixed abbreviations: browsers differ here. */
+export function formatMonthShort(month: string): string {
+  const [year = 0, monthNumber = 1] = month.split('-').map(Number);
+  return `${et.calendar.monthsShort[monthNumber - 1] ?? ''} ${String(year).slice(2)}`;
 }
 
 const monthFormatter = new Intl.DateTimeFormat(LOCALE, { month: 'long', year: 'numeric' });

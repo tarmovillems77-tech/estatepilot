@@ -11,9 +11,8 @@ describe('app shell', () => {
     expect(await screen.findByRole('heading', { name: 'Töölaud' })).toBeTruthy();
     const debtCard = (await screen.findByText('Laenujääk kokku')).parentElement;
     expect(debtCard && within(debtCard).getByText(/€$/)).toBeTruthy();
-    // Linked from the overview table and from the expiry alert of its ending lease.
-    expect(screen.getAllByRole('link', { name: 'Tähe 27 ärimaja' })).toHaveLength(2);
-    expect(screen.getByRole('heading', { name: 'Lõppevad lepingud' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Tähe 27 ärimaja' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Tähelepanu' })).toBeTruthy();
   });
 
   it('renders the settings page with record counts', async () => {

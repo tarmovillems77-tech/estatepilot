@@ -53,6 +53,8 @@ React 19, TypeScript, Vite, Tailwind CSS v4, React Router, Dexie (IndexedDB), Zo
   actual balance from the bank anchors the schedule; balances are labelled actual / derived
   from actual / calculated. Loans can belong to a property or to the whole portfolio.
   Term comparison and refinancing scenarios: src/domain/finance/refinance.ts.
+- Dashboard (src/domain/finance/dashboard.ts): all chart series and alerts are computed from
+  stored data and the forecast engine; charts (Recharts) each have a legend and a table view.
 - Money is EUR excluding VAT; rates are decimal ratios (0.045 = 4.5 %); dates are ISO strings.
 
 ## Project structure

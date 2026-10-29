@@ -60,6 +60,55 @@ function statement(
   };
 }
 
+function debtCalculator(loans: readonly LoanInput[], asOf: string | undefined) {
+  const schedules = loans.map((loan) => amortizationSchedule(loan));
+  const cutOff = (to: string) => (asOf !== undefined && asOf < to ? asOf : to);
+  return (from: string, to: string) =>
+    schedules.reduce(
+      (sum, schedule) => {
+        const paid = paymentsBetween(schedule, from, cutOff(to));
+        return {
+          interest: sum.interest + paid.interest,
+          principal: sum.principal + paid.principal,
+        };
+      },
+      { interest: 0, principal: 0 },
+    );
+}
+
+/**
+ * One statement per calendar month ("YYYY-MM"), in the given order. Pass pre-filtered data for
+ * one property. With `asOf`, scheduled loan payments after that date are left out and later
+ * months are marked `future`.
+ */
+export function monthStatements({
+  transactions,
+  loans,
+  months,
+  asOf,
+}: {
+  transactions: readonly TransactionInput[];
+  loans: readonly LoanInput[];
+  months: readonly string[];
+  /** ISO date; defaults to no cut-off. */
+  asOf?: string;
+}): PeriodStatement[] {
+  const debtBetween = debtCalculator(loans, asOf);
+  return months.map((month) => {
+    const from = `${month}-01`;
+    const first = fromIsoDate(from);
+    const to = dayBefore(new Date(first.getFullYear(), first.getMonth() + 1, 1));
+    return {
+      ...statement(
+        month,
+        transactions.filter((t) => t.date >= from && t.date <= to),
+        debtBetween(from, to),
+      ),
+      future: asOf !== undefined && from > asOf,
+    };
+  });
+}
+
 /**
  * Twelve monthly statements for `year` plus the annual total. Pass pre-filtered data for one
  * property. With `asOf`, scheduled loan payments after that date are left out, so the current
@@ -77,36 +126,18 @@ export function yearStatements({
   /** ISO date; defaults to no cut-off. */
   asOf?: string;
 }): { months: PeriodStatement[]; total: PeriodStatement } {
-  const schedules = loans.map((loan) => amortizationSchedule(loan));
-  const cutOff = (to: string) => (asOf !== undefined && asOf < to ? asOf : to);
-  const debtBetween = (from: string, to: string) =>
-    schedules.reduce(
-      (sum, schedule) => {
-        const paid = paymentsBetween(schedule, from, cutOff(to));
-        return {
-          interest: sum.interest + paid.interest,
-          principal: sum.principal + paid.principal,
-        };
-      },
-      { interest: 0, principal: 0 },
-    );
-
-  const months = Array.from({ length: 12 }, (_, index) => {
-    const month = `${year}-${String(index + 1).padStart(2, '0')}`;
-    const from = `${month}-01`;
-    const to = dayBefore(new Date(fromIsoDate(from).getFullYear(), index + 1, 1));
-    return {
-      ...statement(
-        month,
-        transactions.filter((t) => t.date >= from && t.date <= to),
-        debtBetween(from, to),
-      ),
-      future: asOf !== undefined && from > asOf,
-    };
+  const months = monthStatements({
+    transactions,
+    loans,
+    months: Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`),
+    asOf,
   });
-
   const yearTx = transactions.filter((t) => t.date.startsWith(`${year}-`));
-  const total = statement(String(year), yearTx, debtBetween(`${year}-01-01`, `${year}-12-31`));
+  const total = statement(
+    String(year),
+    yearTx,
+    debtCalculator(loans, asOf)(`${year}-01-01`, `${year}-12-31`),
+  );
   return { months, total };
 }
 
