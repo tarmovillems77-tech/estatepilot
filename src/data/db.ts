@@ -63,6 +63,21 @@ export class EstatePilotDB extends Dexie {
           });
       });
 
+    // v4: loans get day count, Euribor tenor and an optional actual balance (Step 7).
+    // Existing variable loans keep the 3-month reset they were calculated with before.
+    this.version(4)
+      .stores({})
+      .upgrade((tx) =>
+        tx
+          .table('loans')
+          .toCollection()
+          .modify((loan: Record<string, unknown>) => {
+            loan.dayCount ??= '30/360';
+            loan.actualBalance ??= null;
+            if (loan.rateType === 'euribor') loan.euriborTenor ??= '3M';
+          }),
+      );
+
     // First launch: start with fictional demo data so the app is not empty.
     this.on('populate', async (tx) => {
       const demo = buildDemoData(new Date());

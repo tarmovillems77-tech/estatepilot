@@ -42,6 +42,7 @@ import {
   TrailingIntro,
 } from './CalculationBreakdown';
 import { LeaseDialog } from '@/features/leases/LeaseDialog';
+import { PropertyLoansCard } from '@/features/loans/PropertyLoansCard';
 import { termLabel } from '@/features/leases/labels';
 import { UnitDialog } from './UnitDialog';
 
@@ -146,7 +147,13 @@ export function PropertyDetailPage() {
       {property.status === 'owned' ? (
         <OwnedFigures
           property={property}
-          performance={propertyPerformance({ property, transactions, loans, period })}
+          performance={propertyPerformance({
+            property,
+            transactions,
+            loans,
+            period,
+            balanceDate: todayIso(),
+          })}
           period={period}
         />
       ) : (
@@ -182,6 +189,8 @@ export function PropertyDetailPage() {
         onAddLease={(unit) => setLeaseDialog({ unitId: unit.id })}
         onEditLease={(lease) => setLeaseDialog({ lease })}
       />
+
+      <PropertyLoansCard propertyId={property.id} loans={loans} />
 
       <PropertyInfo property={property} />
 

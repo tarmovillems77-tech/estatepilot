@@ -30,7 +30,10 @@ export function SummaryTab({ data }: { data: LedgerData }) {
   const scope = propertyId ? owned.filter((p) => p.id === propertyId) : owned;
   const scopeIds = new Set(scope.map((p) => p.id));
   const transactions = data.transactions.filter((t) => scopeIds.has(t.propertyId));
-  const loans = data.loans.filter((l) => scopeIds.has(l.propertyId));
+  // The whole portfolio also carries portfolio-level loans.
+  const loans = data.loans.filter((l) =>
+    l.propertyId === null ? !propertyId : scopeIds.has(l.propertyId),
+  );
   const today = todayIso();
   const { months, total } = yearStatements({
     transactions,

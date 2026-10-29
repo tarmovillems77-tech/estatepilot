@@ -15,6 +15,7 @@ import type {
   Unit,
   UnitInput,
 } from '@/domain/types';
+import { amortizationSchedule, balanceOn } from '@/domain/finance/loan';
 import { newMeta } from './meta';
 import type { DataSnapshot } from './store';
 
@@ -313,38 +314,74 @@ export function buildDemoData(today: Date): DataSnapshot {
   });
 
   // --- Loans ------------------------------------------------------------------------------
+  // Different combinations on purpose: 6M/3M Euribor, act/360 and 30/360, fixed rate, and a
+  // portfolio-level loan. The Pärna loan has a (fictional) balance confirmed by the bank.
 
-  loan({
+  const parnaLoan: LoanInput = {
     propertyId: parna.id,
     lender: 'Näidispank AS',
+    reference: 'NP-2021-0417',
     principal: 336_000,
     startDate: month(-64),
     termMonths: 300,
     repaymentType: 'annuity',
     rateType: 'euribor',
+    euriborTenor: '6M',
     margin: 0.0185,
-    euribor: 0.021,
+    euribor: 0.022,
+    dayCount: 'act/360',
+    actualBalance: null,
+  };
+  // The bank's figure differs slightly from the calculation (rounding, past rate changes).
+  const parnaCalculated = balanceOn(parnaLoan, amortizationSchedule(parnaLoan), month(0));
+  loan({
+    ...parnaLoan,
+    actualBalance: { amount: Math.round(parnaCalculated - 1_240), date: month(0) },
   });
   loan({
     propertyId: tahe.id,
     lender: 'Näidispank AS',
+    reference: 'NP-2019-0102',
     principal: 552_000,
     startDate: month(-92),
     termMonths: 240,
     repaymentType: 'equal_principal',
     rateType: 'euribor',
+    euriborTenor: '3M',
     margin: 0.022,
     euribor: 0.021,
+    dayCount: '30/360',
+    actualBalance: null,
   });
   loan({
     propertyId: moisa.id,
     lender: 'Demopank AS',
+    reference: 'DP-23-778',
     principal: 616_000,
     startDate: month(-38),
     termMonths: 240,
     repaymentType: 'annuity',
     rateType: 'fixed',
     fixedRate: 0.0495,
+    dayCount: '30/360',
+    actualBalance: null,
+  });
+  // Portfolio-level investment loan, not secured by a single property.
+  loan({
+    propertyId: null,
+    lender: 'Näidispank AS',
+    reference: 'NP-2024-PORTF',
+    principal: 60_000,
+    startDate: month(-24),
+    termMonths: 120,
+    repaymentType: 'annuity',
+    rateType: 'euribor',
+    euriborTenor: '6M',
+    margin: 0.03,
+    euribor: 0.022,
+    dayCount: 'act/360',
+    actualBalance: null,
+    notes: 'Portfelli laiendamise investeerimislaen.',
   });
 
   // --- Income and expenses ---------------------------------------------------------------

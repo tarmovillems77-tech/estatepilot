@@ -37,7 +37,9 @@ describe('buildDemoData', () => {
 
     expect(demo.units.every((u) => propertyIds.has(u.propertyId))).toBe(true);
     expect(demo.leases.every((l) => unitIds.has(l.unitId) && tenantIds.has(l.tenantId))).toBe(true);
-    expect(demo.loans.every((l) => propertyIds.has(l.propertyId))).toBe(true);
+    expect(demo.loans.every((l) => l.propertyId === null || propertyIds.has(l.propertyId))).toBe(
+      true,
+    );
     expect(
       demo.transactions.every(
         (t) => propertyIds.has(t.propertyId) && (t.unitId === null || unitIds.has(t.unitId)),

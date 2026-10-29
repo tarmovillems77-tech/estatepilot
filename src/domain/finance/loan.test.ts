@@ -14,6 +14,8 @@ const base = {
   principal: 120_000,
   startDate: '2026-01-15',
   termMonths: 120,
+  dayCount: '30/360',
+  actualBalance: null,
 } as const;
 
 const fixedAnnuity: LoanInput = {
@@ -28,6 +30,7 @@ const euriborEqual: LoanInput = {
   rateType: 'euribor',
   margin: 0.02,
   euribor: 0.025,
+  euriborTenor: '3M',
 };
 
 const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);

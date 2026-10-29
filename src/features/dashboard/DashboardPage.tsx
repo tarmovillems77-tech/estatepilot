@@ -74,7 +74,10 @@ export function DashboardPage() {
     asOf: now,
     scenario: defaultScenarios.base,
   });
-  const ownedLoanCount = loans.filter((l) => ownedIds.has(l.propertyId)).length;
+  // Loans of owned properties plus portfolio-level loans.
+  const ownedLoanCount = loans.filter(
+    (l) => l.propertyId === null || ownedIds.has(l.propertyId),
+  ).length;
   const k = et.kpi;
 
   return (

@@ -29,6 +29,8 @@ const loan: LoanInput = {
   repaymentType: 'equal_principal',
   rateType: 'fixed',
   fixedRate: 0,
+  dayCount: '30/360',
+  actualBalance: null,
 };
 
 const transactions = [

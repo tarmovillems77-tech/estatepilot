@@ -31,6 +31,8 @@ export type {
   PropertyStatus,
   PropertyType,
   RateType,
+  DayCount,
+  EuriborTenor,
   RepaymentType,
   TenantInput,
   TenantKind,

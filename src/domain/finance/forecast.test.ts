@@ -28,6 +28,9 @@ const variableLoan: LoanInput = {
   rateType: 'euribor',
   margin: 0.02,
   euribor: 0.025,
+  euriborTenor: '3M',
+  dayCount: '30/360',
+  actualBalance: null,
 };
 
 const input: ForecastInput = {

@@ -132,14 +132,34 @@ export const transactionSchema = z.discriminatedUnion('kind', [
 ]);
 
 export const repaymentTypes = ['annuity', 'equal_principal'] as const;
+/** 3- or 6-month Euribor: also how often (in months) the variable rate resets. */
+export const euriborTenors = ['3M', '6M'] as const;
+/**
+ * Interest day count. 30/360: every month is 1/12 of a year. act/360: actual days between
+ * payments / 360 (common in Estonian bank loans; the annuity payment stays fixed and the
+ * principal part absorbs the difference).
+ */
+export const dayCounts = ['30/360', 'act/360'] as const;
 
 const loanBase = {
-  propertyId: z.string().min(1),
+  /** null = portfolio-level loan, not secured by a single property. */
+  propertyId: z.string().min(1).nullable(),
   lender: z.string().trim().min(1).max(120),
+  /** Contract number or other identifier. */
+  reference: z.string().trim().max(60).optional(),
   principal: z.number().finite().positive(),
   startDate: isoDate,
   termMonths: z.number().int().min(1).max(600),
   repaymentType: z.enum(repaymentTypes),
+  dayCount: z.enum(dayCounts).default('30/360'),
+  /**
+   * Outstanding balance confirmed by the bank (statement, online bank) on `date`. The schedule
+   * continues from this amount; everything else is calculated.
+   */
+  actualBalance: z
+    .object({ amount: z.number().finite().nonnegative(), date: isoDate })
+    .nullable()
+    .default(null),
   notes: optionalText,
 };
 
@@ -147,8 +167,10 @@ export const loanSchema = z.discriminatedUnion('rateType', [
   z.object({ rateType: z.literal('fixed'), fixedRate: ratio, ...loanBase }),
   z.object({
     rateType: z.literal('euribor'),
+    /** Bank margin, fixed for the term. */
     margin: ratio,
-    /** Current 3-month Euribor (the rate resets quarterly); forecast scenarios override it. */
+    euriborTenor: z.enum(euriborTenors).default('6M'),
+    /** Current Euribor of the chosen tenor (editable); forecast scenarios override it. */
     euribor: z.number().finite().min(-0.05).max(1),
     ...loanBase,
   }),
@@ -167,3 +189,5 @@ export type UnitType = UnitInput['type'];
 export type TenantKind = TenantInput['kind'];
 export type RepaymentType = LoanInput['repaymentType'];
 export type RateType = LoanInput['rateType'];
+export type EuriborTenor = (typeof euriborTenors)[number];
+export type DayCount = (typeof dayCounts)[number];

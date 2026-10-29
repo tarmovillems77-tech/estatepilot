@@ -43,4 +43,8 @@ export const useTransactionsInRange = ({ from, to }: DateRange, propertyId?: str
 
 export const useLoans = () => useLiveQuery(() => store.loans.list(), []);
 
+/** `null` when the loan does not exist (`undefined` still means loading). */
+export const useLoan = (id: string | undefined) =>
+  useLiveQuery(async () => (id ? ((await store.loans.get(id)) ?? null) : null), [id]);
+
 export const useDataCounts = () => useLiveQuery(() => store.counts(), []);

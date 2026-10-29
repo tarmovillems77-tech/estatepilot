@@ -9,6 +9,8 @@ import { PropertyDetailPage } from '@/features/properties/PropertyDetailPage';
 import { PropertyFormPage } from '@/features/properties/PropertyFormPage';
 import { TenantsLeasesPage } from '@/features/leases/TenantsLeasesPage';
 import { LedgerPage } from '@/features/ledger/LedgerPage';
+import { LoanDetailPage } from '@/features/loans/LoanDetailPage';
+import { LoansPage } from '@/features/loans/LoansPage';
 import { PropertyListPage } from '@/features/properties/PropertyListPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 
@@ -18,6 +20,7 @@ const pages: Partial<Record<Section, ReactNode>> = {
   properties: <PropertyListPage />,
   tenants: <TenantsLeasesPage />,
   transactions: <LedgerPage />,
+  loans: <LoansPage />,
   settings: <SettingsPage />,
 };
 
@@ -32,6 +35,7 @@ export const routes: RouteObject[] = [
       { path: '/kinnisvara/uus', element: <PropertyFormPage /> },
       { path: '/kinnisvara/:id', element: <PropertyDetailPage /> },
       { path: '/kinnisvara/:id/muuda', element: <PropertyFormPage /> },
+      { path: '/laenud/:id', element: <LoanDetailPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

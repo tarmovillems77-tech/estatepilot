@@ -48,6 +48,11 @@ React 19, TypeScript, Vite, Tailwind CSS v4, React Router, Dexie (IndexedDB), Zo
   rent and arrears are computed in src/domain/rent.ts.
 - Transaction CSV format (src/io/transactionsCsv.ts): ';' separator, decimal comma, dd.mm.yyyy,
   UTF-8 with BOM, signed amounts. Used for export now and for bank/accounting imports later.
+- Loans (src/domain/finance/loan.ts): fixed rate or 3M/6M Euribor + margin (kept separate on
+  every schedule row), 30/360 or act/360 interest, re-amortised at each Euribor reset. An
+  actual balance from the bank anchors the schedule; balances are labelled actual / derived
+  from actual / calculated. Loans can belong to a property or to the whole portfolio.
+  Term comparison and refinancing scenarios: src/domain/finance/refinance.ts.
 - Money is EUR excluding VAT; rates are decimal ratios (0.045 = 4.5 %); dates are ISO strings.
 
 ## Project structure

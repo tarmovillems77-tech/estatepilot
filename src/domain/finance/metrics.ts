@@ -102,6 +102,8 @@ export interface PerformanceInput {
   /** Inclusive ISO range; should span whole months. */
   period: { from: string; to: string };
   months?: number;
+  /** Date of the loan balance (and so LTV); defaults to the end of the period. */
+  balanceDate?: string;
 }
 
 /** Actual performance over a period (normally the trailing 12 months). Yields are annualised. */
@@ -111,6 +113,7 @@ export function propertyPerformance({
   loans,
   period,
   months = 12,
+  balanceDate = period.to,
 }: PerformanceInput): Performance {
   const summary = summarizeOperations(transactions);
 
@@ -124,7 +127,7 @@ export function propertyPerformance({
     debtService += paid.payment;
     interest += paid.interest;
     principalRepaid += paid.principal;
-    loanBalance += balanceOn(loan, schedule, period.to);
+    loanBalance += balanceOn(loan, schedule, balanceDate);
   }
 
   return withRatios({

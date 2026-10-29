@@ -67,6 +67,8 @@ describe('propertyPerformance', () => {
     repaymentType: 'equal_principal',
     rateType: 'fixed',
     fixedRate: 0,
+    dayCount: '30/360',
+    actualBalance: null,
   };
   const transactions = [
     ...Array.from({ length: 12 }, () => tx('income', 'rent', 1_000)),

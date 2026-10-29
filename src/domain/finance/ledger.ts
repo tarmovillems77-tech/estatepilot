@@ -18,7 +18,7 @@ import { summarizeOperations } from './metrics';
 export interface PeriodStatement {
   /** "YYYY-MM", or "YYYY" for the annual total. */
   period: string;
-  /** The whole period lies after : nothing has happened yet. */
+  /** The whole period lies after `asOf`: nothing has happened yet. */
   future: boolean;
   rentalIncome: number;
   otherIncome: number;

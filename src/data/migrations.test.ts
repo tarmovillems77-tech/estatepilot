@@ -16,6 +16,10 @@ async function createV2Database(name: string) {
   });
   old.version(2).stores({});
   await old.open();
+  await old.table('loans').bulkAdd([
+    { id: 'loan-v', propertyId: 'p', rateType: 'euribor', margin: 0.02, euribor: 0.02 },
+    { id: 'loan-f', propertyId: 'p', rateType: 'fixed', fixedRate: 0.05 },
+  ]);
   await old.table('leases').add({
     id: 'lease-1',
     unitId: 'unit-1',
@@ -34,7 +38,7 @@ async function createV2Database(name: string) {
   old.close();
 }
 
-describe('database upgrade to version 3', () => {
+describe('database upgrades', () => {
   it('maps old categories, links rent to leases and adds defaults', async () => {
     const name = `migration-${crypto.randomUUID()}`;
     await createV2Database(name);
@@ -51,6 +55,16 @@ describe('database upgrade to version 3', () => {
     // Existing databases are upgraded, not re-seeded with demo data.
     expect(await db.properties.count()).toBe(0);
     expect(await db.transactions.where('leaseId').equals('lease-1').count()).toBe(1);
+
+    // v4: loans keep the 3-month reset they were calculated with and get the new defaults.
+    const loans = new Map((await db.loans.toArray()).map((l) => [l.id, l]));
+    expect(loans.get('loan-v')).toMatchObject({
+      euriborTenor: '3M',
+      dayCount: '30/360',
+      actualBalance: null,
+    });
+    expect(loans.get('loan-f')).toMatchObject({ dayCount: '30/360', actualBalance: null });
+    expect(loans.get('loan-f')).not.toHaveProperty('euriborTenor');
 
     await db.delete();
   });
