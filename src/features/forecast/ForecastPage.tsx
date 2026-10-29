@@ -1,5 +1,5 @@
 import { RotateCcw, Save, Trash2, Undo2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -31,6 +31,7 @@ import {
 import { LoanOverrides, PropertyOverrides } from './OverridesEditor';
 import { SavedComparison } from './SavedComparison';
 import { ScenarioEditor } from './ScenarioEditor';
+import { StressTestSection } from './StressTestSection';
 
 const f = et.forecast;
 const SCOPE_PARAM = 'objekt';
@@ -118,10 +119,21 @@ function Workspace({
   const dirty = JSON.stringify(working) !== JSON.stringify(original);
 
   const scoped = useMemo(() => scopeData(data, scopeId), [data, scopeId]);
-  const run = useMemo(() => runScenarioSet(scoped, working, new Date()), [scoped, working]);
+  // Inputs update immediately; results follow from a deferred copy so typing never waits for
+  // the forecast, charts and tables to re-render.
+  const deferredWorking = useDeferredValue(working);
+  const run = useMemo(
+    () => runScenarioSet(scoped, deferredWorking, new Date()),
+    [scoped, deferredWorking],
+  );
   const ownedInScope = scoped.properties.filter((p) => p.status === 'owned');
-  const propertyName = (id: string | null) =>
-    id === null ? et.loans.portfolioShort : (data.properties.find((p) => p.id === id)?.name ?? '—');
+  const propertyName = useCallback(
+    (id: string | null) =>
+      id === null
+        ? et.loans.portfolioShort
+        : (data.properties.find((p) => p.id === id)?.name ?? '—'),
+    [data.properties],
+  );
 
   async function act(action: () => Promise<void>) {
     setMessage(null);
@@ -265,6 +277,7 @@ function Workspace({
         />
       )}
       <RefinanceSection set={working} onChange={setWorking} run={run} />
+      <StressTestSection run={run} set={deferredWorking} unitName={propertyName} />
       <SavedComparison
         data={scoped}
         current={run}

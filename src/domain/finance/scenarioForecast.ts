@@ -191,6 +191,8 @@ export interface ScenarioRun {
   startDate: string;
   /** Forecast inputs per owned property (after overrides), for showing assumptions. */
   inputs: Map<string, ForecastInput>;
+  /** Portfolio-level loans as a forecast input without income. */
+  portfolioInput: ForecastInput;
   byProperty: Map<string, Record<ScenarioId, ForecastYear[]>>;
   /** Portfolio-level loans: debt without income. */
   portfolioLoans: Record<ScenarioId, ForecastYear[]> | null;
@@ -285,5 +287,5 @@ export function runScenarioSet(
       )
     : null;
 
-  return { startDate, inputs, byProperty, portfolioLoans, total, refinance };
+  return { startDate, inputs, portfolioInput, byProperty, portfolioLoans, total, refinance };
 }

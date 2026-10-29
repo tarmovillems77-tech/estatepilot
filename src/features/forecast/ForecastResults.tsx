@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { Card } from '@/components/ui/Card';
 import { ValueInput } from '@/components/ui/ValueInput';
 import { DSCR_THRESHOLD } from '@/domain/finance/dashboard';
@@ -23,7 +23,7 @@ const dash = '—';
 const selectClass =
   'rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 focus:border-brand-600 focus:outline-none';
 
-export function ScenarioKpis({ run }: { run: ScenarioRun }) {
+export const ScenarioKpis = memo(function ScenarioKpis({ run }: { run: ScenarioRun }) {
   return (
     <div className="grid gap-4 md:grid-cols-3">
       {scenarioOrder.map((id) => {
@@ -68,9 +68,13 @@ export function ScenarioKpis({ run }: { run: ScenarioRun }) {
       })}
     </div>
   );
-}
+});
 
-export function ScenarioComparisonChart({ run }: { run: ScenarioRun }) {
+export const ScenarioComparisonChart = memo(function ScenarioComparisonChart({
+  run,
+}: {
+  run: ScenarioRun;
+}) {
   const [metric, setMetric] = useState<MetricKey>('freeCashFlow');
   return (
     <YearLinesChart
@@ -101,7 +105,7 @@ export function ScenarioComparisonChart({ run }: { run: ScenarioRun }) {
       }
     />
   );
-}
+});
 
 type RowKey = keyof typeof f.rows;
 const rowFormat = (key: RowKey) =>
@@ -118,7 +122,7 @@ const strongRows: RowKey[] = [
   'equity',
 ];
 
-export function AnnualTable({ run }: { run: ScenarioRun }) {
+export const AnnualTable = memo(function AnnualTable({ run }: { run: ScenarioRun }) {
   const [scenario, setScenario] = useState<ScenarioId>('base');
   const years = run.total[scenario];
   const cumulative = cumulativeFreeCashFlow(years);
@@ -208,7 +212,7 @@ export function AnnualTable({ run }: { run: ScenarioRun }) {
       </div>
     </Card>
   );
-}
+});
 
 export function RefinanceSection({
   set,

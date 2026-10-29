@@ -923,6 +923,75 @@ export const et = {
       'Prognoos algab järgmise kuu 1. kuupäeval; 1. aasta tegevuskulud põhinevad viimase 12 kuu tegelikel kuludel.',
     ],
     validation: 'Vigane väärtus — muutust ei rakendatud.',
+    stress: {
+      title: 'Portfelli stressitest',
+      intro:
+        'Mis juhtub, kui Euribor tõuseb? Kõik laenud arvutatakse ümber nende tegeliku jäägi, marginaali, allesjäänud perioodi, tagasimakse viisi ja Euribori tähtaja järgi. Laen muudab intressi ainult oma järgmisel intressi kohandamise kuupäeval. Põhiandmeid ei muudeta.',
+      mode: 'Stressi liik',
+      modes: {
+        shock: 'Kohene šokk (1. aasta)',
+        sustained: 'Püsivalt kõrge (5 aastat)',
+      },
+      modeHelp: {
+        shock:
+          'Euribor tõuseb kohe ja püsib 1. prognoosiaasta; seejärel stsenaariumi tavapärane tee. Näitajad: 1. aasta.',
+        sustained:
+          'Euribor püsib kõrgel kõik 5 aastat. Näitajad: halvim aasta (madalaim DSCR ja rahavoog, kõrgeim LTV).',
+      },
+      operating: 'Üüri ja kulude eeldused',
+      custom: 'Oma Euribor (1–8%)',
+      margin: 'Pangamarginaal stressis',
+      marginHelp: {
+        own: 'Marginaal: iga laenu oma marginaal.',
+        fixed:
+          'Marginaal: kõigil Euribori laenudel see marginaal (alates järgmisest intressi kohandamisest). Fikseeritud intressiga laenud ei muutu. Tühjaks jättes kasutatakse laenude oma marginaale.',
+      },
+      totalRate: (euribor: string, margin: string, total: string) =>
+        `Testjuhtum: Euribor ${euribor} + marginaal ${margin} = intress ${total}`,
+      selectedRate: 'Objektide võrdlus Euriboriga',
+      breakEvenTitle: 'Kriitiline Euribor',
+      breakEvenDscr: 'DSCR langeb alla 1,20',
+      breakEvenCash: 'Vaba rahavoog kuus jõuab nulli',
+      breakEven: {
+        rate: (rate: string) => `Euribori ${rate} juures`,
+        always: 'juba praegu (ka 0% Euribori juures)',
+        never: (upTo: string) => `mitte kuni ${upTo} Euriborini`,
+      },
+      tableTitle: 'Euribori tasemed',
+      tableDescription:
+        'Kõik laenud samal Euribori tasemel (3 ja 6 kuu). Kuumakse on 7. prognoosikuu maksed, kui kõik laenud on intressi juba kohandanud.',
+      propertyTitle: 'Objektide kaupa',
+      baseline: 'Stsenaariumi järgi (võrdlus)',
+      columns: {
+        rate: 'Euribor',
+        unit: 'Objekt',
+        monthlyPayment: 'Kuumakse',
+        annualDebtService: 'Laenumaksed aastas',
+        dscr: 'DSCR',
+        monthlyFreeCashFlow: 'Vaba rahavoog kuus',
+        ltv: 'LTV',
+        interestFiveYears: 'Intress 5 a',
+        freeCashFlowFiveYears: 'Vaba rahavoog 5 a',
+        breakEvenDscr: 'DSCR < 1,20 alates',
+        breakEvenCash: 'Rahavoog < 0 alates',
+      },
+      portfolioLoans: 'Portfelli tasandi laenud',
+      total: 'Kokku',
+      flags: {
+        dscr: 'DSCR alla 1,20',
+        cash: 'Negatiivne vaba rahavoog',
+        ltv: 'LTV üle 70%',
+      },
+      dscrChart: {
+        title: 'DSCR Euribori taseme järgi',
+        description: 'Kohene šokk (1. aasta) ja püsivalt kõrge Euribor (halvim aasta).',
+      },
+      cashChart: {
+        title: 'Vaba rahavoog kuus Euribori taseme järgi',
+        description: 'Kohene šokk (1. aasta) ja püsivalt kõrge Euribor (halvim aasta).',
+      },
+      zero: '0 €',
+    },
   },
   calc: {
     title: 'Arvutuse käik',

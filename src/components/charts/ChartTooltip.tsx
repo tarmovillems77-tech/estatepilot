@@ -31,7 +31,7 @@ export function ChartTooltip({
   const heading = formatLabel ? formatLabel(String(label)) : String(label);
 
   return (
-    <div className="min-w-44 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-lg">
+    <div className="max-w-[calc(100vw-2rem)] min-w-44 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-lg">
       <p className="mb-1 text-xs font-medium text-slate-500">{heading}</p>
       <ul className="space-y-1">
         {series.map((s) => {

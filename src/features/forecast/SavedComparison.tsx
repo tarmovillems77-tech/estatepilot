@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { series as palette } from '@/components/charts/theme';
 import { Card } from '@/components/ui/Card';
 import type { DashboardData } from '@/domain/finance/dashboard';
@@ -18,7 +18,7 @@ const selectClass =
  * The current (possibly unsaved) set against up to two saved sets, for one scenario and metric.
  * Colours follow the slot: current = 1, then the saved sets in the order picked.
  */
-export function SavedComparison({
+export const SavedComparison = memo(function SavedComparison({
   data,
   current,
   currentName,
@@ -32,10 +32,19 @@ export function SavedComparison({
   /** The saved set being edited (already shown as the current one). */
   excludeId: string | null;
 }) {
-  const others = savedSets.filter((s) => s.id !== excludeId);
+  const others = useMemo(() => savedSets.filter((s) => s.id !== excludeId), [savedSets, excludeId]);
   const [picked, setPicked] = useState<string[]>(() => others.slice(0, MAX_SAVED).map((s) => s.id));
   const [scenario, setScenario] = useState<ScenarioId>('base');
   const [metric, setMetric] = useState<MetricKey>('freeCashFlow');
+
+  // Saved sets do not change while the current one is edited: run them once per selection.
+  const savedRuns = useMemo(() => {
+    const asOf = new Date();
+    return others
+      .filter((s) => picked.includes(s.id))
+      .slice(0, MAX_SAVED)
+      .map((set) => ({ set, run: runScenarioSet(data, set, asOf) }));
+  }, [data, others, picked]);
 
   if (others.length === 0) {
     return (
@@ -46,8 +55,6 @@ export function SavedComparison({
     );
   }
 
-  const asOf = new Date();
-  const chosen = others.filter((s) => picked.includes(s.id)).slice(0, MAX_SAVED);
   const series = [
     {
       key: 'current',
@@ -55,11 +62,11 @@ export function SavedComparison({
       color: palette[1],
       years: current.total[scenario],
     },
-    ...chosen.map((set, i) => ({
+    ...savedRuns.map(({ set, run }, i) => ({
       key: set.id,
       label: set.name,
       color: i === 0 ? palette[2] : palette[3],
-      years: runScenarioSet(data, set, asOf).total[scenario],
+      years: run.total[scenario],
     })),
   ];
 
@@ -127,4 +134,4 @@ export function SavedComparison({
       }
     />
   );
-}
+});

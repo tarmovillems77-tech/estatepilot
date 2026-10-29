@@ -161,3 +161,56 @@ describe('saved scenario sets', () => {
     expect((await store.scenarioSets.list()).map((s) => s.name)).toEqual(['Kõrge Euribor (näide)']);
   });
 });
+
+describe('portfolio stress test', () => {
+  const stressCard = () =>
+    screen.getByText('Portfelli stressitest', { selector: 'h2' }).closest('section')!;
+  const rowOf = (container: HTMLElement, label: string) => {
+    const row = within(container).getByText(label, { selector: 'th' }).closest('tr');
+    if (!row) throw new Error(`row ${label} missing`);
+    return [...row.querySelectorAll('td')].map((c) => c.textContent ?? '');
+  };
+
+  it('opens with Euribor 4% and margin 2,65% and shows break-even rates', async () => {
+    await openForecast();
+    const section = stressCard();
+    await vi.waitFor(() =>
+      expect(
+        within(section).getByText('Testjuhtum: Euribor 4% + marginaal 2,65% = intress 6,65%'),
+      ).toBeTruthy(),
+    );
+    // Results arrive asynchronously (a Web Worker in the browser).
+    await vi.waitFor(() => expect(section.getAttribute('aria-busy')).toBe('false'));
+    expect(within(section).getAllByText('Kriitiline Euribor')).toHaveLength(2);
+    expect(within(section).getByText('DSCR langeb alla 1,20')).toBeTruthy();
+    // Levels 2–8% plus the comparison row.
+    for (const level of ['2%', '3%', '4%', '5%', '6%', '8%']) {
+      expect(within(section).getAllByText(level, { selector: 'th' }).length).toBeGreaterThan(0);
+    }
+    expect(within(section).getByText('Stsenaariumi järgi (võrdlus)')).toBeTruthy();
+  });
+
+  it('flags DSCR below 1,20 and negative cash flow at high rates', async () => {
+    await openForecast();
+    const section = stressCard();
+    await vi.waitFor(() => expect(section.getAttribute('aria-busy')).toBe('false'));
+    const at8 = rowOf(section, '8%');
+    // Columns: payment, debt service, DSCR, monthly FCF, LTV, interest 5 y, FCF 5 y.
+    expect(at8[2]).toMatch(/DSCR alla 1,20/);
+    expect(at8[3]).toMatch(/Negatiivne vaba rahavoog/);
+    // DSCR falls as Euribor rises (at a 2,65% margin even 2% Euribor is already below 1,20).
+    const dscr = (cells: string[]) => Number((cells[2] ?? '').split('×')[0]!.replace(',', '.'));
+    expect(dscr(rowOf(section, '2%'))).toBeGreaterThan(dscr(at8));
+  });
+
+  it('uses each loan’s own margin when the stress margin is cleared', async () => {
+    const user = userEvent.setup();
+    await openForecast();
+    const section = stressCard();
+    await vi.waitFor(() => expect(section.getAttribute('aria-busy')).toBe('false'));
+    const withMargin = rowOf(section, '4%')[0];
+    await user.clear(within(section).getByLabelText('Pangamarginaal stressis'));
+    await vi.waitFor(() => expect(rowOf(stressCard(), '4%')[0]).not.toBe(withMargin));
+    expect(within(stressCard()).getByText('Marginaal: iga laenu oma marginaal.')).toBeTruthy();
+  });
+});
