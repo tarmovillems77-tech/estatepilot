@@ -59,6 +59,10 @@ React 19, TypeScript, Vite, Tailwind CSS v4, React Router, Dexie (IndexedDB), Zo
   per-property indexation and value overrides, per-loan margin and term overrides, refinancing
   after 5 years. Scenario sets are saved in their own table; running one never changes stored
   data. Equity = market value − loan balance; free cash flow is reported separately.
+- Stress test (src/domain/finance/stressTest.ts, stressCompute.ts): Euribor 1–8 % with a
+  configurable bank margin (default 2.65%), as an immediate shock or a sustained 5-year
+  scenario that follows each loan's reset schedule. Reports payments, DSCR, LTV, free cash flow
+  and break-even Euribor; it runs in a Web Worker and never changes stored loan data.
 - Money is EUR excluding VAT; rates are decimal ratios (0.045 = 4.5 %); dates are ISO strings.
 
 ## Project structure
