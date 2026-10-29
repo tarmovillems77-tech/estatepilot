@@ -55,6 +55,10 @@ React 19, TypeScript, Vite, Tailwind CSS v4, React Router, Dexie (IndexedDB), Zo
   Term comparison and refinancing scenarios: src/domain/finance/refinance.ts.
 - Dashboard (src/domain/finance/dashboard.ts): all chart series and alerts are computed from
   stored data and the forecast engine; charts (Recharts) each have a legend and a table view.
+- Forecast (src/domain/finance/forecast.ts, scenarioForecast.ts): three editable scenarios,
+  per-property indexation and value overrides, per-loan margin and term overrides, refinancing
+  after 5 years. Scenario sets are saved in their own table; running one never changes stored
+  data. Equity = market value − loan balance; free cash flow is reported separately.
 - Money is EUR excluding VAT; rates are decimal ratios (0.045 = 4.5 %); dates are ISO strings.
 
 ## Project structure

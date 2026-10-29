@@ -4,6 +4,7 @@ import {
   leaseSchema,
   loanSchema,
   propertySchema,
+  scenarioSetSchema,
   tenantSchema,
   transactionSchema,
   unitSchema,
@@ -45,7 +46,15 @@ function createRepository<TInput extends object>(
 }
 
 export function createDexieStore(db: EstatePilotDB): DataStore {
-  const allTables = [db.properties, db.units, db.tenants, db.leases, db.transactions, db.loans];
+  const allTables = [
+    db.properties,
+    db.units,
+    db.tenants,
+    db.leases,
+    db.transactions,
+    db.loans,
+    db.scenarioSets,
+  ];
 
   // Deleting a property removes everything that belongs to it.
   const removeProperty = (id: string) =>
@@ -119,14 +128,14 @@ export function createDexieStore(db: EstatePilotDB): DataStore {
               .between([propertyId, from], [propertyId, to], true, true)
               .toArray(),
     },
+    scenarioSets: createRepository(db.scenarioSets, scenarioSetSchema),
     loans: {
       ...createRepository(db.loans, loanSchema),
       listByProperty: (propertyId) => db.loans.where('propertyId').equals(propertyId).toArray(),
     },
     async counts() {
-      const [properties, units, tenants, leases, transactions, loans] = await Promise.all(
-        allTables.map((table) => table.count()),
-      );
+      const [properties, units, tenants, leases, transactions, loans, scenarioSets] =
+        await Promise.all(allTables.map((table) => table.count()));
       return {
         properties: properties ?? 0,
         units: units ?? 0,
@@ -134,6 +143,7 @@ export function createDexieStore(db: EstatePilotDB): DataStore {
         leases: leases ?? 0,
         transactions: transactions ?? 0,
         loans: loans ?? 0,
+        scenarioSets: scenarioSets ?? 0,
       };
     },
     replaceAll: (snapshot: DataSnapshot) =>
@@ -146,6 +156,7 @@ export function createDexieStore(db: EstatePilotDB): DataStore {
           db.leases.bulkAdd(snapshot.leases),
           db.transactions.bulkAdd(snapshot.transactions),
           db.loans.bulkAdd(snapshot.loans),
+          db.scenarioSets.bulkAdd(snapshot.scenarioSets),
         ]);
       }),
     clearAll: () =>

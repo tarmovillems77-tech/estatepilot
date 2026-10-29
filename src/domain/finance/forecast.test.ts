@@ -15,7 +15,11 @@ const flat: Scenario = {
   opexGrowth: 0,
   valueGrowth: 0,
   capexReserveRate: 0,
-  euribor: [0.02],
+  opexAdjustment: 0,
+  maintenanceReservePerM2: 0,
+  euribor3m: [0.02],
+  euribor6m: [0.02],
+  marginChange: 0,
 };
 
 const variableLoan: LoanInput = {
@@ -80,8 +84,8 @@ describe('forecast', () => {
 
   it('reprices variable loans with the scenario Euribor', () => {
     const withLoan = { ...input, loans: [variableLoan] };
-    const low = forecast(withLoan, { ...flat, euribor: [0.01] });
-    const high = forecast(withLoan, { ...flat, euribor: [0.04] });
+    const low = forecast(withLoan, { ...flat, euribor3m: [0.01] });
+    const high = forecast(withLoan, { ...flat, euribor3m: [0.04] });
     expect(high[0]?.interest).toBeGreaterThan(low[0]?.interest ?? Infinity);
     expect(high[0]?.dscr).toBeLessThan(low[0]?.dscr ?? 0);
     // Loan amortises over time.
@@ -95,8 +99,8 @@ describe('forecast', () => {
       fixedRate: 0.045,
     } as LoanInput;
     const withLoan = { ...input, loans: [fixedLoan] };
-    expect(forecast(withLoan, { ...flat, euribor: [0.01] })[0]?.interest).toBeCloseTo(
-      forecast(withLoan, { ...flat, euribor: [0.05] })[0]?.interest ?? 0,
+    expect(forecast(withLoan, { ...flat, euribor3m: [0.01] })[0]?.interest).toBeCloseTo(
+      forecast(withLoan, { ...flat, euribor3m: [0.05] })[0]?.interest ?? 0,
       6,
     );
   });

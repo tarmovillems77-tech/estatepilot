@@ -8,6 +8,7 @@ import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { PropertyDetailPage } from '@/features/properties/PropertyDetailPage';
 import { PropertyFormPage } from '@/features/properties/PropertyFormPage';
 import { TenantsLeasesPage } from '@/features/leases/TenantsLeasesPage';
+import { ForecastPage } from '@/features/forecast/ForecastPage';
 import { LedgerPage } from '@/features/ledger/LedgerPage';
 import { LoanDetailPage } from '@/features/loans/LoanDetailPage';
 import { LoansPage } from '@/features/loans/LoansPage';
@@ -21,6 +22,7 @@ const pages: Partial<Record<Section, ReactNode>> = {
   tenants: <TenantsLeasesPage />,
   transactions: <LedgerPage />,
   loans: <LoansPage />,
+  forecast: <ForecastPage />,
   settings: <SettingsPage />,
 };
 

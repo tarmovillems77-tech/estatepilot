@@ -62,10 +62,12 @@ export interface RateParts {
   annualRate: number;
 }
 
-export function rateParts(loan: LoanInput, euribor: number): RateParts {
+/** `marginDelta` shifts the bank margin of a variable loan (what-if scenarios). */
+export function rateParts(loan: LoanInput, euribor: number, marginDelta = 0): RateParts {
   if (loan.rateType === 'fixed') return { euribor: null, margin: null, annualRate: loan.fixedRate };
   const floored = Math.max(0, euribor);
-  return { euribor: floored, margin: loan.margin, annualRate: floored + loan.margin };
+  const margin = Math.max(0, loan.margin + marginDelta);
+  return { euribor: floored, margin, annualRate: floored + margin };
 }
 
 export function annualInterestRate(loan: LoanInput, euribor: number): number {
@@ -80,7 +82,17 @@ export function annuityPayment(balance: number, monthlyRate: number, months: num
 }
 
 /** Full repayment schedule. Without `euribor`, the loan's stored Euribor is used throughout. */
-export function amortizationSchedule(loan: LoanInput, euribor?: EuriborSource): ScheduleRow[] {
+export interface ScheduleOptions {
+  /** Margin change in effect on a reset date (variable loans only), e.g. from a forecast start. */
+  marginDelta?: (isoDate: string) => number;
+}
+
+export function amortizationSchedule(
+  loan: LoanInput,
+  euribor?: EuriborSource,
+  options: ScheduleOptions = {},
+): ScheduleRow[] {
+  const marginDeltaAt = options.marginDelta ?? (() => 0);
   const start = fromIsoDate(loan.startDate);
   const storedEuribor = loan.rateType === 'euribor' ? loan.euribor : 0;
   const euriborAt = typeof euribor === 'function' ? euribor : () => euribor ?? storedEuribor;
@@ -100,7 +112,8 @@ export function amortizationSchedule(loan: LoanInput, euribor?: EuriborSource): 
     const remaining = loan.termMonths - period + 1;
 
     if (period === 1 || (period - 1) % resetEvery === 0) {
-      const next = rateParts(loan, euriborAt(toIsoDate(addMonths(start, period - 1))));
+      const resetDate = toIsoDate(addMonths(start, period - 1));
+      const next = rateParts(loan, euriborAt(resetDate), marginDeltaAt(resetDate));
       // Variable loans are re-amortised at every reset, as banks do; this also keeps act/360
       // day-count drift from piling up into the last payment.
       if (period === 1 || loan.rateType === 'euribor' || next.annualRate !== rate.annualRate) {

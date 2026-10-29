@@ -181,7 +181,70 @@ export type UnitInput = z.infer<typeof unitSchema>;
 export type TenantInput = z.infer<typeof tenantSchema>;
 export type LeaseInput = z.infer<typeof leaseSchema>;
 export type TransactionInput = z.infer<typeof transactionSchema>;
+/** A yearly change such as rent growth or value change: −50% … +50%. */
+const yearlyChange = z.number().finite().min(-0.5).max(0.5);
+/** One Euribor value per forecast year. */
+const euriborPathSchema = z.array(z.number().finite().min(-0.05).max(0.3)).length(5);
+
+/** Assumptions of one forecast scenario (see domain/finance/forecast.ts for their use). */
+export const scenarioAssumptionsSchema = z.object({
+  rentGrowth: yearlyChange,
+  vacancyRate: ratio,
+  opexAdjustment: z.number().finite().min(-0.9).max(5),
+  opexGrowth: yearlyChange,
+  maintenanceReservePerM2: z.number().finite().min(0).max(1_000),
+  valueGrowth: yearlyChange,
+  capexReserveRate: ratio,
+  euribor3m: euriborPathSchema,
+  euribor6m: euriborPathSchema,
+  marginChange: z.number().finite().min(-0.2).max(0.2),
+});
+
+export const refinanceSettingsSchema = z.object({
+  enabled: z.boolean(),
+  margin: ratio,
+  euriborTenor: z.enum(euriborTenors),
+  termYears: z.number().int().min(1).max(50),
+  /** One-off costs per refinanced loan (contract fee, notary, mortgage change). */
+  feesPerLoan: money,
+});
+
+/**
+ * A saved set of the three scenarios plus property and loan overrides. Saved separately;
+ * running it never changes properties, leases or loans.
+ */
+export const scenarioSetSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  description: optionalText,
+  scenarios: z.object({
+    optimistic: scenarioAssumptionsSchema,
+    base: scenarioAssumptionsSchema,
+    pessimistic: scenarioAssumptionsSchema,
+  }),
+  /** Per property: rent indexation used in place of the stored default, value change. */
+  propertyOverrides: z
+    .record(
+      z.string(),
+      z.object({ rentIndexation: ratio.nullable(), valueGrowth: yearlyChange.nullable() }),
+    )
+    .default({}),
+  /** Per loan: margin and remaining repayment period from the forecast start. */
+  loanOverrides: z
+    .record(
+      z.string(),
+      z.object({
+        margin: ratio.nullable(),
+        remainingYears: z.number().int().min(1).max(50).nullable(),
+      }),
+    )
+    .default({}),
+  refinance: refinanceSettingsSchema,
+});
+
 export type LoanInput = z.infer<typeof loanSchema>;
+export type ScenarioAssumptions = z.infer<typeof scenarioAssumptionsSchema>;
+export type RefinanceSettings = z.infer<typeof refinanceSettingsSchema>;
+export type ScenarioSetInput = z.infer<typeof scenarioSetSchema>;
 
 export type PropertyType = PropertyInput['type'];
 export type PropertyStatus = PropertyInput['status'];

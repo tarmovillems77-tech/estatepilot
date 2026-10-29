@@ -1,6 +1,7 @@
 import { addMonths, dayBefore, fromIsoDate, toIsoDate } from '../dates';
 import { effectiveIndexation, isLeaseActive } from '../leases';
 import type {
+  EuriborTenor,
   LeaseInput,
   LoanInput,
   PropertyInput,
@@ -8,21 +9,32 @@ import type {
   TransactionInput,
   UnitInput,
 } from '../types';
-import { amortizationSchedule, balanceOn, paymentsBetween } from './loan';
+import { amortizationSchedule, balanceOn, paymentsBetween, type ScheduleRow } from './loan';
 import { dscr, freeCashFlow, ltv, summarizeOperations } from './metrics';
 
 /*
  * Year-by-year projection (year 1 = the 12 months starting next month).
  *
- *   Gross potential rent  = Σ rent streams; each grows yearly from year 2 by its own rate:
- *                           lease indexation → else property indexation → else the scenario's
- *                           market rent growth. Leases are assumed to renew on the same terms.
+ *   Gross potential rent  = Σ rent streams (one per unit); each grows yearly from year 2 by its
+ *                           own rate: lease indexation → else property indexation → else the
+ *                           scenario's market rent growth. Leases are assumed to renew on the
+ *                           same terms. Nothing raises all rents by one common rate unless the
+ *                           data leaves it to the market assumption.
  *   Vacancy loss          = gross potential rent × vacancyRate
- *   Operating expenses    = last 12 months' operating expenses, grown by opexGrowth from year 1
- *   Capex reserve         = effective gross income × capexReserveRate
- *   Debt service          = actual schedule of each loan, with variable loans repriced from
- *                           the scenario's 3M Euribor for that year (see loan.ts)
+ *   Rental income (EGI)   = gross potential rent − vacancy loss + other income
+ *   Operating expenses    = last 12 months' operating expenses × (1 + opexAdjustment),
+ *                           grown by opexGrowth from year 1
+ *   Maintenance reserve   = area (m²) × maintenanceReservePerM2, grown by opexGrowth from year 2
+ *   NOI                   = rental income − operating expenses − maintenance reserve
+ *   Capex reserve         = rental income × capexReserveRate (capital repairs, after NOI)
+ *   Debt service          = each loan's own schedule: interest and principal separately;
+ *                           variable loans repriced from the scenario's 3M or 6M Euribor
+ *                           (matching the loan) and margin change (see loan.ts)
  *   Free cash flow        = NOI − debt service − capex reserve
+ *   Property value        = market value × (1 + valueGrowth)^year
+ *   Equity                = property value − loan balance. Free cash flow is NOT added to
+ *                           equity: value change and principal repayment are its only drivers.
+ *   Net yield             = NOI / (purchase price + acquisition costs)
  *   Cash-on-cash          = free cash flow / equity invested
  */
 
@@ -36,14 +48,21 @@ export interface Scenario {
   rentGrowth: number;
   /** Share of potential rent lost to vacancy and arrears. */
   vacancyRate: number;
+  /** Change of the operating-expense level against the last 12 months (0.1 = +10%). */
+  opexAdjustment: number;
   /** Yearly operating expense change. */
   opexGrowth: number;
-  /** Yearly market value change. */
+  /** Planned maintenance reserve in € per m² per year (part of operating costs). */
+  maintenanceReservePerM2: number;
+  /** Yearly market value change; negative = depreciation. */
   valueGrowth: number;
-  /** Share of effective gross income set aside for capital expenditure. */
+  /** Share of rental income set aside for capital repairs. */
   capexReserveRate: number;
-  /** 3-month Euribor for each forecast year; the last value repeats if the list is short. */
-  euribor: readonly number[];
+  /** 3- and 6-month Euribor for each forecast year; the last value repeats. */
+  euribor3m: readonly number[];
+  euribor6m: readonly number[];
+  /** Change of every variable loan's margin from the forecast start (0.005 = +0,5 pp). */
+  marginChange: number;
 }
 
 /** Default assumptions — starting points the user can change, not market predictions. */
@@ -51,26 +70,38 @@ export const defaultScenarios: Record<ScenarioId, Scenario> = {
   optimistic: {
     rentGrowth: 0.04,
     vacancyRate: 0.02,
+    opexAdjustment: 0,
     opexGrowth: 0.025,
+    maintenanceReservePerM2: 0,
     valueGrowth: 0.04,
     capexReserveRate: 0.03,
-    euribor: [0.019, 0.017, 0.016, 0.016, 0.017],
+    euribor3m: [0.019, 0.017, 0.016, 0.016, 0.017],
+    euribor6m: [0.02, 0.018, 0.017, 0.017, 0.018],
+    marginChange: 0,
   },
   base: {
     rentGrowth: 0.025,
     vacancyRate: 0.05,
+    opexAdjustment: 0,
     opexGrowth: 0.035,
+    maintenanceReservePerM2: 0,
     valueGrowth: 0.02,
     capexReserveRate: 0.05,
-    euribor: [0.021, 0.022, 0.023, 0.024, 0.025],
+    euribor3m: [0.021, 0.022, 0.023, 0.024, 0.025],
+    euribor6m: [0.022, 0.023, 0.024, 0.025, 0.026],
+    marginChange: 0,
   },
   pessimistic: {
     rentGrowth: 0,
     vacancyRate: 0.1,
+    opexAdjustment: 0,
     opexGrowth: 0.05,
+    maintenanceReservePerM2: 0,
     valueGrowth: -0.02,
     capexReserveRate: 0.08,
-    euribor: [0.03, 0.035, 0.0375, 0.0375, 0.035],
+    euribor3m: [0.03, 0.035, 0.0375, 0.0375, 0.035],
+    euribor6m: [0.031, 0.036, 0.0385, 0.0385, 0.036],
+    marginChange: 0,
   },
 };
 
@@ -87,6 +118,9 @@ export interface RentStream {
   indexation: number | null;
 }
 
+/** A loan as projected: optionally with a different margin from the forecast start. */
+export type ForecastLoan = LoanInput & { forecastMargin?: number };
+
 export interface ForecastInput {
   /** First day of forecast year 1 (ISO). */
   startDate: string;
@@ -97,22 +131,31 @@ export interface ForecastInput {
   /** Annual operating expenses (latest 12 months or an estimate). */
   operatingExpenses: number;
   marketValue: number;
+  /** Overrides the scenario's value change for this property. */
+  valueGrowth?: number;
+  /** Net area in m² (for the maintenance reserve). */
+  area?: number;
+  /** Purchase price + acquisition costs (for net yield). */
+  totalInvestment?: number;
   /** Purchase price + acquisition costs − original loan principal. */
   equityInvested: number;
   /** Loans to project; pass modified copies to test other terms, margins or rates. */
-  loans: readonly LoanInput[];
+  loans: readonly ForecastLoan[];
 }
 
 export interface ForecastYear {
   year: number;
   from: string;
   to: string;
-  euribor: number;
+  euribor3m: number;
+  euribor6m: number;
   grossPotentialRent: number;
   vacancyLoss: number;
   otherIncome: number;
+  /** Rental income after vacancy, incl. other income. */
   effectiveGrossIncome: number;
   operatingExpenses: number;
+  maintenanceReserve: number;
   noi: number;
   capexReserve: number;
   interest: number;
@@ -126,14 +169,49 @@ export interface ForecastYear {
   propertyValue: number;
   equity: number;
   equityInvested: number;
+  totalInvestment: number;
+  netYield: number | null;
   dscr: number | null;
   ltv: number | null;
   cashOnCash: number | null;
 }
 
-export function euriborForYear(scenario: Scenario, yearIndex: number): number {
-  const path = scenario.euribor;
+export function euriborForYear(path: readonly number[], yearIndex: number): number {
   return path[Math.min(Math.max(yearIndex, 0), path.length - 1)] ?? 0;
+}
+
+export function euriborPath(scenario: Scenario, tenor: EuriborTenor): readonly number[] {
+  return tenor === '6M' ? scenario.euribor6m : scenario.euribor3m;
+}
+
+/**
+ * Schedule of a loan under a scenario: its own stored Euribor before the forecast start, the
+ * scenario path for its tenor (by forecast year) afterwards, and the margin change from the
+ * start (scenario-wide change, plus the loan's own forecast margin if set).
+ */
+export function scenarioSchedule(
+  loan: ForecastLoan,
+  scenario: Scenario,
+  startDate: string,
+): ScheduleRow[] {
+  const start = fromIsoDate(startDate);
+  const yearIndexOf = (isoDate: string) => {
+    const date = fromIsoDate(isoDate);
+    const months =
+      (date.getFullYear() - start.getFullYear()) * 12 + date.getMonth() - start.getMonth();
+    return Math.floor(months / 12);
+  };
+  if (loan.rateType !== 'euribor') return amortizationSchedule(loan);
+
+  const path = euriborPath(scenario, loan.euriborTenor);
+  const ownMarginDelta = loan.forecastMargin === undefined ? 0 : loan.forecastMargin - loan.margin;
+  return amortizationSchedule(
+    loan,
+    (date) => (date < startDate ? loan.euribor : euriborForYear(path, yearIndexOf(date))),
+    {
+      marginDelta: (date) => (date < startDate ? 0 : ownMarginDelta + scenario.marginChange),
+    },
+  );
 }
 
 export function forecast(
@@ -142,24 +220,11 @@ export function forecast(
   years = FORECAST_YEARS,
 ): ForecastYear[] {
   const start = fromIsoDate(input.startDate);
-  const yearIndexOf = (isoDate: string) => {
-    const date = fromIsoDate(isoDate);
-    const months =
-      (date.getFullYear() - start.getFullYear()) * 12 + date.getMonth() - start.getMonth();
-    return Math.floor(months / 12);
-  };
-
-  // Before the forecast starts, a loan keeps its own stored Euribor.
   const schedules = input.loans.map((loan) => ({
     loan,
-    schedule: amortizationSchedule(loan, (date) =>
-      date < input.startDate
-        ? loan.rateType === 'euribor'
-          ? loan.euribor
-          : 0
-        : euriborForYear(scenario, yearIndexOf(date)),
-    ),
+    schedule: scenarioSchedule(loan, scenario, input.startDate),
   }));
+  const valueGrowth = input.valueGrowth ?? scenario.valueGrowth;
 
   const rows: ForecastYear[] = [];
   for (let year = 1; year <= years; year++) {
@@ -174,7 +239,12 @@ export function forecast(
     const vacancyLoss = grossPotentialRent * scenario.vacancyRate;
     const otherIncome = grown(input.otherIncome, scenario.rentGrowth);
     const effectiveGrossIncome = grossPotentialRent - vacancyLoss + otherIncome;
-    const operatingExpenses = input.operatingExpenses * (1 + scenario.opexGrowth) ** year;
+    const operatingExpenses =
+      input.operatingExpenses * (1 + scenario.opexAdjustment) * (1 + scenario.opexGrowth) ** year;
+    const maintenanceReserve = grown(
+      (input.area ?? 0) * scenario.maintenanceReservePerM2,
+      scenario.opexGrowth,
+    );
     const capexReserve = effectiveGrossIncome * scenario.capexReserveRate;
 
     let interest = 0;
@@ -192,20 +262,23 @@ export function forecast(
         year,
         from,
         to,
-        euribor: euriborForYear(scenario, year - 1),
+        euribor3m: euriborForYear(scenario.euribor3m, year - 1),
+        euribor6m: euriborForYear(scenario.euribor6m, year - 1),
         grossPotentialRent,
         vacancyLoss,
         otherIncome,
         effectiveGrossIncome,
         operatingExpenses,
-        noi: effectiveGrossIncome - operatingExpenses,
+        maintenanceReserve,
+        noi: effectiveGrossIncome - operatingExpenses - maintenanceReserve,
         capexReserve,
         interest,
         principal,
         debtService: interest + principal,
         loanBalance,
-        propertyValue: input.marketValue * (1 + scenario.valueGrowth) ** year,
+        propertyValue: input.marketValue * (1 + valueGrowth) ** year,
         equityInvested: input.equityInvested,
+        totalInvestment: input.totalInvestment ?? 0,
       }),
     );
   }
@@ -214,7 +287,7 @@ export function forecast(
 
 type ForecastTotals = Omit<
   ForecastYear,
-  'freeCashFlow' | 'monthlyFreeCashFlow' | 'equity' | 'dscr' | 'ltv' | 'cashOnCash'
+  'freeCashFlow' | 'monthlyFreeCashFlow' | 'equity' | 'netYield' | 'dscr' | 'ltv' | 'cashOnCash'
 >;
 
 function withRatios(totals: ForecastTotals): ForecastYear {
@@ -223,7 +296,9 @@ function withRatios(totals: ForecastTotals): ForecastYear {
     ...totals,
     freeCashFlow: fcf,
     monthlyFreeCashFlow: fcf / 12,
+    // Only value and loan balance: accumulated cash flow is reported separately.
     equity: totals.propertyValue - totals.loanBalance,
+    netYield: totals.totalInvestment > 0 ? totals.noi / totals.totalInvestment : null,
     dscr: dscr(totals.noi, totals.debtService),
     ltv: ltv(totals.loanBalance, totals.propertyValue),
     cashOnCash: totals.equityInvested > 0 ? fcf / totals.equityInvested : null,
@@ -236,6 +311,7 @@ const summed = [
   'otherIncome',
   'effectiveGrossIncome',
   'operatingExpenses',
+  'maintenanceReserve',
   'noi',
   'capexReserve',
   'interest',
@@ -244,6 +320,7 @@ const summed = [
   'loanBalance',
   'propertyValue',
   'equityInvested',
+  'totalInvestment',
 ] as const;
 
 /** Adds property forecasts year by year; ratios are recomputed from the totals. */
@@ -260,24 +337,31 @@ export function combineForecasts(forecasts: readonly ForecastYear[][]): Forecast
       year: row.year,
       from: row.from,
       to: row.to,
-      euribor: row.euribor,
+      euribor3m: row.euribor3m,
+      euribor6m: row.euribor6m,
     });
   });
+}
+
+/** Free cash flow added up year by year — shown next to equity, never added to it. */
+export function cumulativeFreeCashFlow(years: readonly ForecastYear[]): number[] {
+  let total = 0;
+  return years.map((y) => (total += y.freeCashFlow));
 }
 
 export interface ForecastSource {
   property: Pick<
     PropertyInput,
-    'type' | 'purchasePrice' | 'acquisitionCosts' | 'marketValue' | 'rentIndexation'
+    'type' | 'purchasePrice' | 'acquisitionCosts' | 'marketValue' | 'rentIndexation' | 'totalArea'
   >;
-  units: readonly (Pick<UnitInput, 'marketRent'> & { id: string })[];
+  units: readonly (Pick<UnitInput, 'marketRent'> & { id: string; area?: number })[];
   leases: readonly Pick<
     LeaseInput,
     'unitId' | 'startDate' | 'endDate' | 'monthlyRent' | 'annualIndexation'
   >[];
   /** This property's transactions over the last 12 months. */
   trailingTransactions: readonly TransactionInput[];
-  loans: readonly LoanInput[];
+  loans: readonly ForecastLoan[];
   asOf: Date;
 }
 
@@ -298,24 +382,32 @@ export function rentStreamsFor(
   });
 }
 
+/** First day of the forecast: the first day of next month. */
+export function forecastStart(asOf: Date): string {
+  return toIsoDate(new Date(asOf.getFullYear(), asOf.getMonth() + 1, 1));
+}
+
 /** Builds forecast input from stored data; properties without history get estimated costs. */
 export function forecastInputFor(source: ForecastSource): ForecastInput {
-  const { property, trailingTransactions, loans, asOf } = source;
+  const { property, units, trailingTransactions, loans, asOf } = source;
   const rentStreams = rentStreamsFor(source, toIsoDate(asOf));
   const grossPotentialRent = rentStreams.reduce((sum, s) => sum + s.annualRent, 0);
   const history = summarizeOperations(trailingTransactions);
   const hasHistory = trailingTransactions.length > 0;
   const borrowed = loans.reduce((sum, loan) => sum + loan.principal, 0);
+  const totalInvestment = property.purchasePrice + property.acquisitionCosts;
 
   return {
-    startDate: toIsoDate(new Date(asOf.getFullYear(), asOf.getMonth() + 1, 1)),
+    startDate: forecastStart(asOf),
     rentStreams,
     otherIncome: history.otherIncome,
     operatingExpenses: hasHistory
       ? history.operatingExpenses
       : grossPotentialRent * defaultOpexRatio[property.type],
     marketValue: property.marketValue,
-    equityInvested: Math.max(0, property.purchasePrice + property.acquisitionCosts - borrowed),
+    area: property.totalArea ?? units.reduce((sum, u) => sum + (u.area ?? 0), 0),
+    totalInvestment,
+    equityInvested: Math.max(0, totalInvestment - borrowed),
     loans,
   };
 }

@@ -47,4 +47,6 @@ export const useLoans = () => useLiveQuery(() => store.loans.list(), []);
 export const useLoan = (id: string | undefined) =>
   useLiveQuery(async () => (id ? ((await store.loans.get(id)) ?? null) : null), [id]);
 
+export const useScenarioSets = () => useLiveQuery(() => store.scenarioSets.list(), []);
+
 export const useDataCounts = () => useLiveQuery(() => store.counts(), []);

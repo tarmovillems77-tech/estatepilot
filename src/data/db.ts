@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { Lease, Loan, Property, Tenant, Transaction, Unit } from '@/domain/types';
+import type { Lease, Loan, Property, ScenarioSet, Tenant, Transaction, Unit } from '@/domain/types';
 import { buildDemoData } from './demo';
 
 // Records always carry their id (assigned by the data layer), so plain Table<T, string> suffices.
@@ -10,6 +10,7 @@ export class EstatePilotDB extends Dexie {
   leases!: Table<Lease, string>;
   transactions!: Table<Transaction, string>;
   loans!: Table<Loan, string>;
+  scenarioSets!: Table<ScenarioSet, string>;
 
   constructor(name = 'estatepilot') {
     super(name);
@@ -78,6 +79,9 @@ export class EstatePilotDB extends Dexie {
           }),
       );
 
+    // v5: saved forecast scenario sets (Step 9).
+    this.version(5).stores({ scenarioSets: 'id, name' });
+
     // First launch: start with fictional demo data so the app is not empty.
     this.on('populate', async (tx) => {
       const demo = buildDemoData(new Date());
@@ -88,6 +92,7 @@ export class EstatePilotDB extends Dexie {
         tx.table('leases').bulkAdd(demo.leases),
         tx.table('transactions').bulkAdd(demo.transactions),
         tx.table('loans').bulkAdd(demo.loans),
+        tx.table('scenarioSets').bulkAdd(demo.scenarioSets),
       ]);
     });
   }

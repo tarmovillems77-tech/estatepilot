@@ -36,7 +36,7 @@ export function SettingsPage() {
         <h2 className="text-lg font-semibold text-slate-900">{text.dataTitle}</h2>
         <p className="mt-1 text-sm text-slate-600">{text.dataDescription}</p>
 
-        <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
           {(Object.keys(text.counts) as (keyof typeof text.counts)[]).map((key) => (
             <div key={key} className="rounded-lg bg-slate-50 px-3 py-2">
               <dt className="text-xs text-slate-500">{text.counts[key]}</dt>

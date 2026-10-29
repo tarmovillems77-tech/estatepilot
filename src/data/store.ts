@@ -2,6 +2,7 @@ import type {
   LeaseInput,
   LoanInput,
   PropertyInput,
+  ScenarioSetInput,
   TenantInput,
   TransactionInput,
   UnitInput,
@@ -41,6 +42,7 @@ export interface DataStore {
   transactions: Repository<TransactionInput> & {
     listInRange(range: DateRange, propertyId?: string): Promise<WithMeta<TransactionInput>[]>;
   };
+  scenarioSets: Repository<ScenarioSetInput>;
   loans: Repository<LoanInput> & {
     listByProperty(propertyId: string): Promise<WithMeta<LoanInput>[]>;
   };
@@ -57,6 +59,8 @@ export interface DataSnapshot {
   leases: WithMeta<LeaseInput>[];
   transactions: WithMeta<TransactionInput>[];
   loans: WithMeta<LoanInput>[];
+  /** Saved forecast scenario sets. */
+  scenarioSets: WithMeta<ScenarioSetInput>[];
 }
 
 export type StoreErrorCode = 'notFound' | 'tenantHasLeases' | 'leaseOverlap';

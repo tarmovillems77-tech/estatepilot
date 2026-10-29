@@ -15,7 +15,9 @@ import type {
   Unit,
   UnitInput,
 } from '@/domain/types';
+import { scenarioIds } from '@/domain/finance/forecast';
 import { amortizationSchedule, balanceOn } from '@/domain/finance/loan';
+import { defaultScenarioSet } from '@/domain/finance/scenarioForecast';
 import { newMeta } from './meta';
 import type { DataSnapshot } from './store';
 
@@ -551,7 +553,22 @@ export function buildDemoData(today: Date): DataSnapshot {
 
   transactions.sort((a, b) => a.date.localeCompare(b.date));
 
-  return { properties, units, tenants, leases, transactions, loans };
+  // --- A saved forecast scenario set ------------------------------------------------------
+  // Example of a saved set: Euribor 1,5 pp higher in every scenario and a 2% indexation
+  // assumption for Pärna. The default set itself is never stored.
+  const raise = (path: readonly number[]) =>
+    path.map((v) => Math.round((v + 0.015) * 10_000) / 10_000);
+  const example = defaultScenarioSet('Kõrge Euribor (näide)');
+  for (const id of scenarioIds) {
+    const scenario = example.scenarios[id];
+    scenario.euribor3m = raise(scenario.euribor3m);
+    scenario.euribor6m = raise(scenario.euribor6m);
+  }
+  example.description = 'Euribor 1,5 protsendipunkti kõrgem kui vaikestsenaariumites.';
+  example.propertyOverrides[parna.id] = { rentIndexation: 0.02, valueGrowth: null };
+  const scenarioSets = [withMeta(example)];
+
+  return { properties, units, tenants, leases, transactions, loans, scenarioSets };
 }
 
 /** Monthly service charge advance per m² for the office building's tenants. */

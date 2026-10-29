@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import { ChartCard, type LegendItem } from '@/components/charts/ChartCard';
 import { ChartTooltip, type TooltipSeries } from '@/components/charts/ChartTooltip';
+import { niceScale } from '@/components/charts/scale';
 import { axisProps, CHART_HEIGHT, chrome, series, status } from '@/components/charts/theme';
 import type { CashFlowPoint, ProjectionPoint } from '@/domain/finance/dashboard';
 import { DSCR_THRESHOLD } from '@/domain/finance/dashboard';
@@ -57,16 +58,6 @@ const lineProps = (color: string) =>
     isAnimationActive: false,
   }) as const;
 
-/** Domain and ticks on round steps, always including `include` (e.g. a threshold). */
-function niceScale(values: readonly number[], step: number, include?: number) {
-  const all = include === undefined ? values : [...values, include];
-  const round = (v: number) => Math.round(v * 1000) / 1000;
-  const lo = round(Math.floor(Math.min(...all) / step) * step);
-  const hi = round(Math.ceil(Math.max(...all) / step) * step);
-  const ticks: number[] = [];
-  for (let v = lo; v <= hi + step / 2; v += step) ticks.push(round(v));
-  return { domain: [lo, hi] as [number, number], ticks };
-}
 const crosshair = { stroke: chrome.muted, strokeWidth: 1 };
 
 /** X-axis label of a projection point: "Praegu", "+1 a" … */

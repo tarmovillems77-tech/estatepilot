@@ -2,6 +2,7 @@ import type {
   LeaseInput,
   LoanInput,
   PropertyInput,
+  ScenarioSetInput,
   TenantInput,
   TransactionInput,
   UnitInput,
@@ -23,6 +24,7 @@ export type Tenant = WithMeta<TenantInput>;
 export type Lease = WithMeta<LeaseInput>;
 export type Transaction = WithMeta<TransactionInput>;
 export type Loan = WithMeta<LoanInput>;
+export type ScenarioSet = WithMeta<ScenarioSetInput>;
 
 export type {
   LeaseInput,
@@ -33,7 +35,10 @@ export type {
   RateType,
   DayCount,
   EuriborTenor,
+  RefinanceSettings,
   RepaymentType,
+  ScenarioAssumptions,
+  ScenarioSetInput,
   TenantInput,
   TenantKind,
   TransactionInput,
